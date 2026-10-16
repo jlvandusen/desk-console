@@ -1,0 +1,17 @@
+# site and runtime data -- never commit (contains your network names, PC list, logs)
+site.json
+kvm.json
+machines.csv
+fingerprints/
+logs/
+*.log
+
+# binaries: downloaded by tools/Get-Redist.ps1, produced by the build
+installer/redist/
+dist/
+*.msi
+*.exe
+!tools/*.exe
+
+# editor
+.vscode/

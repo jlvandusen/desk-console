@@ -1,0 +1,7 @@
+{
+  "shareRoot": "\\\\nas\\share\\DeskConsole",
+  "credentialHosts": [ "nas", "nas.example.lan", "10.0.0.10" ],
+  "credentialUser": "admin",
+  "mapDrive": "Z:",
+  "mapPath": "\\\\nas\\share"
+}
