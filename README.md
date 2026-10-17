@@ -23,7 +23,7 @@ Plus, per PC:
 - **Phones and tablets:** QR codes in the installer and the app to install RustDesk on a phone
   (even a foldable) and control the PCs from it.
 
-## What's new in 1.7.0
+## What's new in 1.7
 
 - **Every PC reports its own state** to the shared folder, and every card shows it -- greyed when
   it goes stale, so a quiet PC is never shown as fine. Keyboard/mouse lines come from the server's
@@ -37,7 +37,7 @@ Plus, per PC:
 - **Ctrl+Alt+Shift+1..9** jumps straight to a PC; screens can be laid out in a grid; Wake-on-LAN is
   turned on by setup; addresses heal themselves.
 
-After updating, run the 1.7.0 installer once on each PC (*Update and keep this PC's settings*).
+After updating, run the 1.7.1 installer once on each PC (*Update and keep this PC's settings*).
 Everything, with what to expect: **[What's New](../../wiki/Whats-New)** -- the same list Desk
 Console shows once after it updates -- and the [changelog](CHANGELOG.md).
 

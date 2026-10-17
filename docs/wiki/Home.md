@@ -13,7 +13,7 @@ mouse** (Deskflow, or Synergy 3) and can each be **viewed and controlled remotel
 
 | Page | What it covers |
 |---|---|
-| [What's New](Whats-New) | Everything that changed in 1.7.0, and what to do once on every PC after updating |
+| [What's New](Whats-New) | Everything that changed in 1.7 (1.7.0 and the 1.7.1 fixes), and what to do once on every PC after updating |
 | [Installation](Installation) | First-time setup, server first, then clients; what each wizard page means; updating, uninstalling |
 | [Configuration](Configuration) | `site.json`, `kvm.json`, `machines.csv`, the status and command folders -- what lives where |
 | [How It Works](How-It-Works) | The setup steps, the 2-minute task on every PC, why each design choice |

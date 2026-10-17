@@ -1,6 +1,16 @@
 # What's New
 
-## Desk Console 1.7.0 (since 1.6.0)
+## Desk Console 1.7.1 (since 1.6.0)
+
+### 1.7.1 fixes three things in 1.7.0
+
+- The 2-minute task on each PC wrongly decided, on most runs, that the shared folder was
+  unreachable, and quietly skipped its work: the status report, address healing, queued Restart /
+  Sleep / Lock / Sign out, and the Deskflow sync. It now runs every time.
+- A PC's status report could not be overwritten once written, so its card went grey (*Status N min
+  old*) after the first one. Reports now refresh every 2 to 4 minutes, as intended.
+- Turning automatic sign-in off now deletes the saved sign-in password instead of leaving an empty
+  one in its place.
 
 Desk Console shows this list once after it updates (the first time its window opens; started in
 the notification area, a notification to click first), and any time from **What's new** in its
@@ -9,7 +19,7 @@ and the [release notes](https://github.com/jlvandusen/desk-console/releases).
 
 ### Do this once on every PC
 
-- Run `DeskConsoleSetup-1.7.0.exe` and choose **Update and keep this PC's settings** (or Desk
+- Run `DeskConsoleSetup-1.7.1.exe` and choose **Update and keep this PC's settings** (or Desk
   Console > *Repair / update this PC...*). It asks for admin once. Desk Console updates its own
   files, but only setup starts the status reports, limits RustDesk and the firewall to your home
   network, completes the Windows Update policy and turns on Wake-on-LAN.

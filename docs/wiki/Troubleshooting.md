@@ -82,10 +82,21 @@ its 2-minute task corrects the row within two minutes whenever it changes. Check
 just-woken PC can take over half a second to answer.
 
 ### A card says *No report yet* or *Status N min old*
-That PC's 2-minute task is not reporting: it has not run 1.7.0 setup yet (Desk Console updates
+That PC's 2-minute task is not reporting: it has not run 1.7.x setup yet (Desk Console updates
 itself, but the task is registered by setup -- use *Repair / update this PC* there), nobody is
 signed in there (the task runs as the signed-in user), or it cannot reach the shared folder.
-`schtasks /Query /TN "DeskConsole Deskflow trust sync"` on that PC shows the task.
+`schtasks /Query /TN "DeskConsole Deskflow trust sync"` on that PC shows the task, and
+`agent.log` in its install folder says why a report was not written.
+
+On a PC running **1.7.0**, a card that goes grey a few minutes after its first report is a 1.7.0
+bug, fixed in 1.7.1: the task judged the shared folder unreachable on most runs (nothing in
+`agent.log`), and when it did get through it could not overwrite the report (`agent.log`: *status
+not written: ... The path is not of a legal form*). That PC updates itself from the shared folder
+once 1.7.1's scripts are there.
+
+The PC can also simply be **asleep**: *Online: no* with *RustDesk: not reachable* too. A sleeping
+client also drops its keyboard and mouse link; *Wake* brings it back only with Wake-on-LAN on in
+its BIOS and network card ([Fleet Status and Actions](Fleet-Status-and-Actions#wake)).
 
 ### *Actions* did nothing
 The card shows the result once that PC reports it (*restart: ok*, *expired*, *refused*). A request

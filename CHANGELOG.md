@@ -4,6 +4,29 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.7.1] - 2026-10-17
+
+Copy the new scripts to the shared folder: installed copies update themselves. On a PC that has
+not run 1.7.x setup yet, run `DeskConsoleSetup-1.7.1.exe` (*Update and keep this PC's settings*),
+as the 1.7.0 notes below say.
+
+### Fixed
+
+- **The 2-minute task skipped its work on most runs.** Its check that the shared folder's server
+  answers (new in 1.7.0) looked at the connection attempts twice -- "connected?", then "all
+  finished?" -- and a NAS that answered between the two looks read as unreachable. On a fast home
+  network that was nearly every run (10 of 10 in a test, 0 of 10 now), so the status report,
+  address healing, the Deskflow clients following the server, queued actions and the Deskflow
+  trust and layout sync were all skipped, silently. Both checks (the agent's and setup's) now
+  decide from the final state.
+- **Status reports could not be refreshed.** A run that got past that check still failed to
+  overwrite the PC's earlier report, so every card turned grey (*Status N min old*) after the first
+  one: Windows PowerShell 5.1 passed the agent's `$null` backup-file argument to `File.Replace` as
+  an empty path ("The path is not of a legal form"). Reports now refresh on change and at least
+  every 4 minutes; `agent.json` is written again too.
+- Turning automatic sign-in off left an empty saved password (the LSA secret `DefaultPassword`)
+  instead of deleting it, for the same reason. No password stayed stored; now the secret is gone.
+
 ## [1.7.0] - 2026-10-17
 
 Run the new installer once on every PC -- or Desk Console > *Repair / update this PC* -- after

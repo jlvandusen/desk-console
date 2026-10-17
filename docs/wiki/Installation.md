@@ -88,7 +88,7 @@ a newer Desk Console, and the scripts never downgrade a PC by themselves.
 Settings > Apps > **Desk Console** removes the app, its shortcuts, the 2-minute task, the dev box
 task and Desk Console's files in the install folder. The uninstaller is the one the last
 `DeskConsoleSetup` run wrote -- a self-update does not replace it -- so on a PC set up before 1.7.0,
-run the 1.7.0 installer once (*Update and keep this PC's settings*) before uninstalling; the older
+run a 1.7.x installer once (*Update and keep this PC's settings*) before uninstalling; the older
 uninstaller leaves both tasks behind. What stays, on purpose:
 
 - **Automatic sign-in** and its screen lock (the uninstaller asks first when it is on): turn it off

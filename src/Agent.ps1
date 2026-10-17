@@ -127,12 +127,16 @@ function Test-DeskAgentShare {
             $c = New-Object Net.Sockets.TcpClient; $cs += $c
             try { $ts += $c.ConnectAsync($h, $port) } catch {}
         }
-        $ok = $false; $t0 = [Diagnostics.Stopwatch]::StartNew()
+        $t0 = [Diagnostics.Stopwatch]::StartNew()
         while ($ts.Count -and $t0.ElapsedMilliseconds -lt 3000) {
-            if (@($ts | Where-Object { $_.Status -eq 'RanToCompletion' }).Count) { $ok = $true; break }
+            if (@($ts | Where-Object { $_.Status -eq 'RanToCompletion' }).Count) { break }
             if (-not @($ts | Where-Object { -not $_.IsCompleted }).Count) { break }   # refused, or no such host
             Start-Sleep -Milliseconds 50
         }
+        # Decided from the final state. 1.7.0 decided inside the loop, and a connect that finished
+        # between its two looks ("connected?" no, "all finished?" yes) read as unreachable -- a NAS
+        # answering in a millisecond lost that race often, and those runs wrote no report at all.
+        $ok = [bool]@($ts | Where-Object { $_.Status -eq 'RanToCompletion' }).Count
         foreach ($c in $cs) { try { $c.Close() } catch {} }
         if (-not $ok) { return $false }
     }
@@ -523,7 +527,13 @@ function Write-DeskAgentFile([string]$path, [string]$text) {
     [IO.File]::WriteAllText($tmp, $text, (New-Object Text.UTF8Encoding $true))
     for ($i = 1; ; $i++) {
         try {   # Replace swaps in one step; Move-Item -Force deletes the target first (a reader could find no file)
-            if (Test-Path -LiteralPath $path) { [IO.File]::Replace($tmp, $path, $null) }
+            if (Test-Path -LiteralPath $path) {
+                # [NullString]::Value, not $null: Windows PowerShell 5.1 hands $null to a string
+                # parameter as "", which Replace rejects ("The path is not of a legal form") -- in
+                # 1.7.0 every report after a PC's first one failed that way and the cards went grey.
+                try { [IO.File]::Replace($tmp, $path, [NullString]::Value, $true) }
+                catch { Move-Item -LiteralPath $tmp -Destination $path -Force -ErrorAction Stop }   # a share that cannot swap in one step
+            }
             else { Move-Item -LiteralPath $tmp -Destination $path -Force -ErrorAction Stop }
             return
         }

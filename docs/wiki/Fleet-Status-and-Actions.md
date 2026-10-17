@@ -17,7 +17,7 @@ folder:
 
 Desk Console treats a report **older than 6 minutes** as stale: the card says *Status N min old*
 in grey and no longer vouches for that PC's keyboard/mouse link. *No report yet (agent not
-running?)* means that PC has not run 1.7.0 setup, or nobody is signed in there -- the task runs as
+running?)* means that PC has not run 1.7.x setup, or nobody is signed in there -- the task runs as
 the signed-in user.
 
 The task belongs to the account that ran setup, and it reports and runs actions only while that

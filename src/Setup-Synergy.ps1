@@ -224,12 +224,14 @@ function Test-ShareUp {
     if (-not $ShareHost) { return $true }
     $cs = @(); $ts = @()
     foreach ($port in 445, 139) { $c = New-Object Net.Sockets.TcpClient; $cs += $c; try { $ts += $c.ConnectAsync($ShareHost, $port) } catch {} }
-    $sw = [Diagnostics.Stopwatch]::StartNew(); $ok = $false
-    while ($ts.Count -and -not $ok -and $sw.ElapsedMilliseconds -lt 3000) {
-        $ok = [bool]@($ts | Where-Object { $_.Status -eq 'RanToCompletion' }).Count
-        if (-not $ok -and -not @($ts | Where-Object { -not $_.IsCompleted }).Count) { break }   # refused, or no such host
-        if (-not $ok) { Start-Sleep -Milliseconds 50 }
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while ($ts.Count -and $sw.ElapsedMilliseconds -lt 3000) {
+        if (@($ts | Where-Object { $_.Status -eq 'RanToCompletion' }).Count) { break }
+        if (-not @($ts | Where-Object { -not $_.IsCompleted }).Count) { break }   # refused, or no such host
+        Start-Sleep -Milliseconds 50
     }
+    # from the final state: deciding between two looks lost a connect that finished in between (1.7.0)
+    $ok = [bool]@($ts | Where-Object { $_.Status -eq 'RanToCompletion' }).Count
     foreach ($c in $cs) { try { $c.Close() } catch {} }
     $ok
 }
@@ -1046,7 +1048,7 @@ function Set-AutoLogon {
     if ($AutoLogon -eq 'Disable') {
         Set-ItemProperty $Winlogon -Name AutoAdminLogon -Value '0' -Type String
         Remove-ItemProperty $Winlogon -Name DefaultPassword -ErrorAction SilentlyContinue
-        [DeskAutoLogon]::StoreSecret('DefaultPassword', $null)
+        [DeskAutoLogon]::StoreSecret('DefaultPassword', [NullString]::Value)   # $null would arrive as "": an empty secret, not a deleted one
         $was = Get-DcValue 'PasswordLessWas'
         if ($null -ne $was) {
             Set-ItemProperty $PwLess -Name DevicePasswordLessBuildVersion -Value $was -Type DWord
