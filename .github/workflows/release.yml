@@ -1,0 +1,157 @@
+# Release: on a v<version> tag, build DeskConsoleSetup-<version>.exe from the tagged commit, hash
+# it, attest its build provenance and publish the GitHub release with that version's CHANGELOG.md
+# section. Releases up to 1.6.0 were built by hand from the working tree minutes before their
+# commit, so nothing tied the exe to the source; this does (gh attestation verify, below).
+#
+#   1. raise src/version.txt, add the "## [x.y.z] - date" section to CHANGELOG.md, commit, push
+#   2. git tag v<x.y.z> && git push origin v<x.y.z>
+#
+# Assets: the setup exe, the scripts zip (src/*: what the shared folder needs for self-update and
+# "Repair / update this PC"), the source of the bundled GPL/AGPL programs, and SHA256SUMS.txt.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sources:
+    # RustDesk (AGPL-3.0) and Deskflow (GPL-2.0) ship inside the installer, so each release carries
+    # their complete source for the bundled tags, submodules included (GitHub's own tag archives
+    # leave out RustDesk's libs/hbb_common). Linux keeps symlinks intact in the tarballs.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Clone the bundled tags with their submodules
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force sources | Out-Null
+          foreach ($p in @(./tools/Get-Redist.ps1 -ListPins | Where-Object { $_.Repo })) {
+            $name = "$(($p.Repo -split '/')[1])-$($p.Version)-source"
+            git clone --quiet --depth 1 --branch $p.Tag --recurse-submodules --shallow-submodules "https://github.com/$($p.Repo).git" "$env:RUNNER_TEMP/$name"
+            if ($LASTEXITCODE) { throw "git clone $($p.Repo) $($p.Tag) failed" }
+            tar --exclude=.git -czf "sources/$name.tar.gz" -C "$env:RUNNER_TEMP" $name
+            if ($LASTEXITCODE) { throw "tar $name failed" }
+          }
+          Get-ChildItem sources | Format-Table Name, Length
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: sources
+          path: sources/*.tar.gz
+          retention-days: 1
+
+  release:
+    needs: sources
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write       # create the release and upload its files
+      id-token: write       # build provenance: OIDC token for the signing certificate
+      attestations: write   # build provenance: store the attestation
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: The tag must match src/version.txt
+        shell: pwsh
+        run: |
+          $v = (Get-Content src/version.txt -TotalCount 1).Trim()
+          if ("v$v" -ne $env:GITHUB_REF_NAME) { throw "Tag $env:GITHUB_REF_NAME does not match src/version.txt ($v)." }
+          "VERSION=$v" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Repository checks (tools/Test-Repo.ps1)
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-Repo.ps1 -SkipAnalyzer
+
+      - name: Bundled installers, hash- and signature-checked (tools/Get-Redist.ps1, then Test-Pins)
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\Get-Redist.ps1
+
+      - name: Build the installer (Inno Setup 6)
+        shell: pwsh
+        run: |
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            choco install innosetup --version 6.7.1 --yes --no-progress
+            if ($LASTEXITCODE) { throw "choco install innosetup failed ($LASTEXITCODE)" }
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          & $iscc installer\DeskConsole.iss
+          if ($LASTEXITCODE) { throw "ISCC failed ($LASTEXITCODE)" }
+
+      - name: Scripts zip (src/*, for the shared folder)
+        shell: pwsh
+        run: Compress-Archive -Path src\* -DestinationPath "dist\DeskConsole-$env:VERSION-scripts.zip"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: sources
+          path: dist
+
+      - name: SHA-256 and the release notes
+        shell: pwsh
+        run: |
+          $v = [regex]::Escape($env:VERSION)
+          $files = @(Get-ChildItem dist -File | Where-Object { $_.Name -match "^(DeskConsoleSetup-$v\.exe|DeskConsole-$v-scripts\.zip|.+-source\.tar\.gz)$" })
+          if (@($files | Where-Object { $_.Extension -eq '.exe' }).Count -ne 1) { throw "dist has no DeskConsoleSetup-$env:VERSION.exe" }
+          $sums = @($files | ForEach-Object { '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash, $_.Name })
+          $sums | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          $log = Get-Content CHANGELOG.md -Raw
+          $m = [regex]::Match($log, "(?ms)^## \[$v\][^\n]*\n(.*?)(?=^## \[|\z)")
+          if (-not $m.Success) { throw "CHANGELOG.md has no '## [$env:VERSION]' section" }
+          $notes = @(
+            $m.Groups[1].Value.Trim()
+            ''
+            '## Verify the download'
+            ''
+            'The installer is not code-signed (SmartScreen: More info > Run anyway). SHA-256:'
+            ''
+            '```'
+            $sums
+            '```'
+            ''
+            "Build provenance -- proves the file was built by this repository's release workflow from tag $($env:GITHUB_REF_NAME):"
+            ''
+            '```'
+            "gh attestation verify DeskConsoleSetup-$($env:VERSION).exe --repo $($env:GITHUB_REPOSITORY)"
+            '```'
+          )
+          $notes | Set-Content "$env:RUNNER_TEMP\notes.md" -Encoding utf8
+          Get-Content "$env:RUNNER_TEMP\notes.md"
+
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: |
+            dist/DeskConsoleSetup-${{ env.VERSION }}.exe
+            dist/DeskConsole-${{ env.VERSION }}-scripts.zip
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $assets = @("dist/DeskConsoleSetup-$env:VERSION.exe", "dist/DeskConsole-$env:VERSION-scripts.zip", 'dist/SHA256SUMS.txt') +
+                    @(Get-ChildItem dist -Filter '*-source.tar.gz' | ForEach-Object { "dist/$($_.Name)" })
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {     # a re-run: replace the files and the notes
+            gh release upload $tag @assets --clobber
+            if ($LASTEXITCODE) { throw 'gh release upload failed' }
+            gh release edit $tag --notes-file "$env:RUNNER_TEMP\notes.md"
+          } else {
+            gh release create $tag @assets --title "Desk Console $env:VERSION" --notes-file "$env:RUNNER_TEMP\notes.md" --verify-tag
+          }
+          if ($LASTEXITCODE) { throw 'publishing the release failed' }

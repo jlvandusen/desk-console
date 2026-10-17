@@ -1,0 +1,36 @@
+# CI: the static gate (tools/Test-Repo.ps1) on every push and pull request.
+# The PCs run Windows PowerShell 5.1, so the checks run there first -- its parser is the real test.
+# PowerShell 7 then parses everything again and runs PSScriptAnalyzer: PSUseCompatibleSyntax for
+# 5.1 plus every Error-severity rule (tools/PSScriptAnalyzerSettings.psd1). Nothing is built here;
+# the release workflow builds the installer from the tag.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Checks in Windows PowerShell 5.1 (what the PCs run)
+        shell: cmd
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-Repo.ps1 -SkipAnalyzer
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: Install-Module PSScriptAnalyzer -RequiredVersion 1.24.0 -Scope CurrentUser -Force
+
+      - name: Checks in PowerShell 7, with PSScriptAnalyzer
+        shell: cmd
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File tools\Test-Repo.ps1

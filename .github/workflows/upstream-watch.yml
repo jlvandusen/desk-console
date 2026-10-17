@@ -1,0 +1,84 @@
+# Upstream watch: once a week, compare the bundled RustDesk, Deskflow and Visual C++ runtime pins
+# with the newest upstream releases (tools/Get-Redist.ps1 -CheckLatest) and open one issue per
+# component that is behind, with the bump checklist. RustDesk listens on every PC, so its fixes
+# matter; each Deskflow bump needs a smoke test, because the config writer depends on 1.27 behaviour.
+# GitHub turns scheduled workflows off after 60 days without activity in the repository: if the
+# issues stop coming, re-enable this under Actions (or run it by hand: Run workflow).
+name: Upstream watch
+
+on:
+  schedule:
+    - cron: '23 7 * * 1'     # Mondays 07:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Compare the pins with the latest releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ./tools/Get-Redist.ps1 -CheckLatest -Report "$env:RUNNER_TEMP/upstream.json"
+          if ($LASTEXITCODE -ge 2 -or -not (Test-Path "$env:RUNNER_TEMP/upstream.json")) { throw 'The upstream check itself failed (above).' }
+          exit 0
+
+      - name: Open one issue per component that is behind
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $steps = @{
+            'RustDesk' = @(
+              '- [ ] `tools/Get-Redist.ps1`: Version, Tag, Name, Url and Sha (the digest above, upper-case, without `sha256:`)'
+              '- [ ] `src/Setup-Synergy.ps1` `$Installers.RustDesk` (Msi, Sha, Ver) and the `THIRD-PARTY-NOTICES.md` row'
+              '- [ ] the APK links in `src/Desk-Console.ps1`, `installer/DeskConsole.iss` and `tools/Make-MobileQr.py`'
+              '- [ ] regenerate the QR codes: `python tools/Make-MobileQr.py`, then `tools/Convert-QrBmp.ps1`'
+              '- [ ] `tools/Test-Pins.ps1` passes'
+              '- [ ] read the release notes: does the `whitelist` option still take CIDR entries? (home-LAN-only reach depends on it)'
+              '- [ ] on one PC: re-run setup over a RustDesk session (it must not drop), then View + control from another PC, also at the lock screen'
+            )
+            'Deskflow' = @(
+              '- [ ] `tools/Get-Redist.ps1`: Version, Tag, Name, Url and Sha (the digest above, upper-case, without `sha256:`)'
+              '- [ ] `src/Setup-Synergy.ps1` `$Installers.Deskflow` (Msi, Sha, Ver) and the `THIRD-PARTY-NOTICES.md` row'
+              '- [ ] `tools/Test-Pins.ps1` passes'
+              '- [ ] read the release notes for settings changes: setup relies on 1.27 behaviour (computers listed in `Deskflow.conf` as `[computer_<name>]`, links and options in the layout file, the `kvm.json` options allow-list from `src/lib/server/Config.cpp`)'
+              '- [ ] smoke test on the server and one client: re-run setup, the mouse crosses both ways, the hotkeys switch screens, a new client is trusted within 2 minutes'
+            )
+            'Microsoft Visual C++ runtime' = @(
+              '- [ ] download it, read its version (file properties) and check it is signed by Microsoft Corporation'
+              '- [ ] `tools/Get-Redist.ps1`: Version, Url (the address above) and Sha; `src/Setup-Synergy.ps1` `$VcRedist`; the `THIRD-PARTY-NOTICES.md` row'
+              '- [ ] `tools/Test-Pins.ps1` passes'
+              '- [ ] optional: setup installs the runtime only where it is missing or older than 14.44 (what Deskflow needs), so this bump only matters for its own fixes'
+            )
+          }
+          $open = @(gh issue list --state open --limit 200 --json title --jq '.[].title')
+          $res = @(Get-Content "$env:RUNNER_TEMP/upstream.json" -Raw | ConvertFrom-Json)
+          foreach ($r in @($res | Where-Object { $_.Behind })) {
+            $title = "Upstream: $($r.Product) $($r.Latest) is out (bundled: $($r.Pinned))"
+            if ($open -contains $title) { "Already open: $title"; continue }
+            $body = @(
+              "$($r.Product) **$($r.Latest)** is out; Desk Console bundles **$($r.Pinned)**."
+              ''
+              "- Release: $($r.Release)"
+              "- File: $($r.Asset)"
+              "- Digest: ``$($r.Digest)``"
+              ''
+              'To bump it:'
+              ''
+            ) + $steps[$r.Product] + @('', 'Opened by `.github/workflows/upstream-watch.yml`.')
+            gh issue create --title $title --body ($body -join "`n")
+            if ($LASTEXITCODE) { throw "gh issue create failed for $($r.Product)" }
+            "Opened: $title"
+          }
+          exit 0

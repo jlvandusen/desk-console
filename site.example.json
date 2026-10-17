@@ -1,7 +1,8 @@
 {
   "shareRoot": "\\\\nas\\share\\DeskConsole",
   "credentialHosts": [ "nas", "nas.example.lan", "10.0.0.10" ],
-  "credentialUser": "admin",
+  "credentialUser": "deskconsole",
   "mapDrive": "Z:",
-  "mapPath": "\\\\nas\\share"
+  "mapPath": "\\\\nas\\share",
+  "rustdeskReach": "lan"
 }

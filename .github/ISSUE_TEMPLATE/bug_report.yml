@@ -1,0 +1,70 @@
+name: Bug report
+description: Setup, the installer or Desk Console does not do what the wiki says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you paste anything, take your network out of it.** Setup logs, `Desk-Console.ps1 -Check`
+        output, `machines.csv`, `status\<PC>.json` and screenshots contain IP and MAC addresses, RustDesk IDs,
+        account names and the shared folder's path. Replace them with placeholders (`192.168.x.x`, `PC-A`,
+        `<rustdesk-id>`, `\\nas\share`). Never paste a password, `site.json`, or any file from the shared
+        folder you have not read through.
+
+        A security problem? Do not open an issue: report it privately as described in
+        [SECURITY.md](https://github.com/jlvandusen/desk-console/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Desk Console version
+      description: The window title, or `version.txt` in `%LOCALAPPDATA%\Programs\DeskConsole`.
+      placeholder: "1.7.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it go wrong?
+      options:
+        - The installer (DeskConsoleSetup-<version>.exe)
+        - Setup run from the shared folder (Setup-Synergy.cmd)
+        - The Desk Console window or tray icon
+        - Keyboard and mouse sharing (Deskflow or Synergy)
+        - RustDesk (View + control, phones, reach)
+        - Automatic sign-in, Windows Update or Dev box
+        - The 2-minute task (status, card actions, trust sync, addresses)
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows edition and version
+      placeholder: Windows 11 Pro 24H2
+  - type: dropdown
+    id: role
+    attributes:
+      label: This PC's role
+      options:
+        - Server (the keyboard and mouse are plugged in here)
+        - Client
+        - Not set up yet
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Steps to see it again, if you know them.
+    validations:
+      required: true
+  - type: textarea
+    id: check
+    attributes:
+      label: Desk Console -Check output (redacted)
+      description: 'powershell -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\Programs\DeskConsole\Desk-Console.ps1" -Check'
+      render: text
+  - type: textarea
+    id: log
+    attributes:
+      label: Setup log lines (redacted)
+      description: From the shared folder's `logs\<PC>-<step>.log`; the lines around FAILED are usually enough.
+      render: text

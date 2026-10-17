@@ -1,0 +1,16 @@
+# The repository stores text as LF. Windows scripts are checked out as CRLF: cmd.exe mis-reads
+# LF-only batch files once they use labels or goto, and the PCs' own tools expect CRLF.
+* text=auto
+*.ps1  text eol=crlf
+*.psd1 text eol=crlf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+*.iss  text eol=crlf
+
+# never diffed or converted
+*.png binary
+*.bmp binary
+*.ico binary
+*.msi binary
+*.exe binary
+*.zip binary

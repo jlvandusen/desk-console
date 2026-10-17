@@ -1,14 +1,17 @@
 **[Home](Home)**
 
+- [What's New](Whats-New)
 - [Installation](Installation)
 - [Configuration](Configuration)
 - [How It Works](How-It-Works)
 - [Desk Console App](Desk-Console-App)
+- [Fleet Status and Actions](Fleet-Status-and-Actions)
 - [Keyboard and Mouse](Keyboard-and-Mouse)
 - [Remote Control](Remote-Control)
 - [Automatic Sign-In](Automatic-Sign-In)
 - [Windows Update](Windows-Update)
 - [Dev Box](Dev-Box)
 - [Security](Security)
+- [Hardening the Shared Folder](Hardening-the-Shared-Folder)
 - [Troubleshooting](Troubleshooting)
 - [Building](Building)

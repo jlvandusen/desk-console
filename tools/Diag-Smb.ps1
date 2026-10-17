@@ -6,8 +6,10 @@
 
   -Fix sets LocalAccountTokenFilterPolicy = 1: local admin accounts then keep admin rights
   over the network, which C$ needs. Windows strips them by default ("remote UAC"), so a
-  correct password for a local admin still fails on C$. Weaker against network attacks --
-  only on a home LAN you trust. -Undo puts it back.
+  correct password for a local admin still fails on C$. It applies to EVERY local admin
+  account on this PC and stays on until -Undo: any device on the LAN that has a local admin's
+  password (or its hash) then gets full admin over the network -- the way attacks move from
+  one PC to the next. Prefer RustDesk's file transfer; after -Fix, run -Undo when you are done.
 #>
 param([switch]$Fix, [switch]$Undo)
 $ErrorActionPreference = 'Continue'
@@ -23,7 +25,11 @@ if (($Fix -or $Undo) -and -not $elevated) {
     return
 }
 try {
-    if ($Fix)  { Set-ItemProperty $sys -Name LocalAccountTokenFilterPolicy -Value 1 -Type DWord -ErrorAction Stop; Write-Host 'LocalAccountTokenFilterPolicy = 1 (remote UAC off for local admins)' -ForegroundColor Green }
+    if ($Fix)  {
+        Set-ItemProperty $sys -Name LocalAccountTokenFilterPolicy -Value 1 -Type DWord -ErrorAction Stop
+        Write-Host 'LocalAccountTokenFilterPolicy = 1: remote UAC is OFF for every local admin account on this PC.' -ForegroundColor Green
+        Write-Host 'It stays off until you run -Undo; anyone on the LAN with a local admin password now gets full admin over the network.' -ForegroundColor Yellow
+    }
     if ($Undo) { Remove-ItemProperty $sys -Name LocalAccountTokenFilterPolicy -ErrorAction Stop; Write-Host 'LocalAccountTokenFilterPolicy removed (Windows default)' -ForegroundColor Green }
 } catch { Write-Host "Change FAILED: $($_.Exception.Message)" -ForegroundColor Red }
 

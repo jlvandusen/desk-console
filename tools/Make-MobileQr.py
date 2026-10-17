@@ -1,12 +1,15 @@
 """Make-MobileQr.py -- QR codes for installing RustDesk on a phone or tablet.
 
 Writes src/mobile/rustdesk-android.png and rustdesk-ios.png (shown by Desk Console) and the
-same as .bmp (shown by the installer). Needs the pure-Python 'segno' package:
+same at installer size in installer/mobile/*.png; tools/Convert-QrBmp.ps1 then turns those into
+the .bmp files the installer page shows. Needs the pure-Python 'segno' package:
     python -m pip install segno            (or --target <dir> and set PYTHONPATH)
     python tools/Make-MobileQr.py
+    powershell -ExecutionPolicy Bypass -File tools/Convert-QrBmp.ps1
 
 RustDesk is NOT on Google Play (removed in 2023); Android installs come from RustDesk's
-GitHub release (the APK) or F-Droid. Keep the APK version equal to the bundled RustDesk MSI.
+GitHub release (the APK) or F-Droid. Keep the APK version equal to the bundled RustDesk MSI
+(tools/Get-Redist.ps1); tools/Test-Pins.ps1 checks this link and decodes the images to compare.
 """
 import io
 import pathlib

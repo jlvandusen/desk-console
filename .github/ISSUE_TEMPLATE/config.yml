@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security problem privately
+    url: https://github.com/jlvandusen/desk-console/security/advisories/new
+    about: Please do not open a public issue for a vulnerability (see SECURITY.md).
+  - name: Documentation (wiki)
+    url: https://github.com/jlvandusen/desk-console/wiki
+    about: Installation, configuration, troubleshooting -- every failure met so far, with its fix.

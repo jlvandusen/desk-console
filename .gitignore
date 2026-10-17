@@ -4,7 +4,14 @@ kvm.json
 machines.csv
 fingerprints/
 logs/
+status/
+commands/
 *.log
+*.log.old
+*.tmp
+
+# per-PC agent state (lives in the install folder)
+agent.json
 
 # binaries: downloaded by tools/Get-Redist.ps1, produced by the build
 installer/redist/

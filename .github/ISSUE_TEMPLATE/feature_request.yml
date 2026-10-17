@@ -1,0 +1,24 @@
+name: Feature request
+description: Something Desk Console should do for your PCs
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Desk Console stays small on purpose: Windows PCs on one home LAN, a shared folder, Deskflow or
+        Synergy, RustDesk. Say what you do by hand today that it could do for you.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you do by hand today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What should Desk Console do instead?
+  - type: textarea
+    id: setup
+    attributes:
+      label: Your setup
+      description: How many PCs, server or client, Deskflow or Synergy (no addresses or names needed).
