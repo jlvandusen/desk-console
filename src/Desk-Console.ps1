@@ -10,7 +10,7 @@
   The RustDesk password is kept in THIS PC's Windows Credential Manager
   (DeskConsole:RustDesk), never on the share.
 #>
-param([switch]$Check, [string]$Snapshot)   # -Snapshot <png>: render the window off-screen and exit
+param([switch]$Check, [string]$Snapshot, [string]$SnapshotMobile)   # -Snapshot / -SnapshotMobile <png>: render off-screen and exit
 $ErrorActionPreference = 'Stop'
 
 # site.json next to this script (install folder or shared folder) names the shared folder
@@ -38,7 +38,7 @@ $SynergyExe  = 'C:\Program Files\Synergy\Synergy.exe'
 $SynergyConf = 'C:\ProgramData\Synergy\config\synergy.conf'
 $SynergyCore = 'C:\ProgramData\Synergy\config\synergy-core.conf'
 $CredTarget  = 'DeskConsole:RustDesk'
-$AppVersion  = [version]'1.5.0'          # keep equal to version.txt on the share
+$AppVersion  = [version]'1.6.0'          # keep equal to version.txt on the share
 $InstallDir  = Join-Path $env:LOCALAPPDATA 'Programs\DeskConsole'
 $Cache       = Join-Path $InstallDir 'machines.csv'   # last good copy, used when the share is offline
 $Installed   = $PSScriptRoot -eq $InstallDir
@@ -206,6 +206,109 @@ function Get-AutoLogonInfo {
     if ("$($w.AutoAdminLogon)" -eq '1') { "ON for $($w.DefaultDomainName)\$($w.DefaultUserName)$(if ($lock) { ', then the screen locks' })" } else { 'off' }
 }
 
+# Windows Update restarts on THIS PC (set by Setup-Synergy.ps1 -NoAutoRestart / Set-NoAutoRestart.cmd)
+function Get-UpdateRestartInfo {
+    $v = (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -ErrorAction SilentlyContinue).NoAutoRebootWithLoggedOnUsers
+    if ($v -eq 1) { 'no automatic restart while someone is signed in' } else { 'Windows default (may restart by itself)' }
+}
+
+# Dev box: reopen VS Code on a folder and resume Claude Code at sign-in (Start-DevBox.ps1;
+# per-user scheduled task, no admin). Prefer the installed copy, so the task survives the share.
+$DevTask   = 'DeskConsole dev box resume'
+$DevScript = @((Join-Path $InstallDir 'Start-DevBox.ps1'), (Join-Path $PSScriptRoot 'Start-DevBox.ps1')) |
+             Where-Object { Test-Path $_ } | Select-Object -First 1
+function Get-DevBoxConf {
+    if (-not $DevScript) { return $null }
+    $f = Join-Path (Split-Path $DevScript -Parent) 'devbox.json'
+    if (Test-Path $f) { try { return (Get-Content $f -Raw | ConvertFrom-Json) } catch {} }
+    $null
+}
+function Get-DevBoxInfo {
+    $c = Get-DevBoxConf
+    if (-not $c -or -not (Get-ScheduledTask -TaskName $DevTask -ErrorAction SilentlyContinue)) { return 'off' }
+    $w = @(); if ($c.openCode) { $w += 'VS Code' }; if ($c.resumeClaude) { $w += 'claude --continue' }
+    "$($w -join ' + ') in $($c.folder), at sign-in"
+}
+function Show-DevBoxDialog {
+    if (-not $DevScript) { [Windows.Forms.MessageBox]::Show('Start-DevBox.ps1 is missing -- update Desk Console.') | Out-Null; return }
+    $c = Get-DevBoxConf
+    $d = New-Object Windows.Forms.Form
+    $d.Text = 'Dev box: resume at sign-in'; $d.ClientSize = '560,250'; $d.FormBorderStyle = 'FixedDialog'
+    $d.StartPosition = 'CenterParent'; $d.MaximizeBox = $false; $d.MinimizeBox = $false; $d.Font = $Font
+    $l = New-Label "When $env:USERNAME signs in to this PC (also after an automatic sign-in):"; $l.Location = '14,12'
+    $code = New-Object Windows.Forms.CheckBox; $code.Text = 'Reopen VS Code on this folder'; $code.Location = '14,40'; $code.AutoSize = $true
+    $cl = New-Object Windows.Forms.CheckBox; $cl.Text = 'Also open a terminal running  claude --continue  (resumes the last Claude Code chat there)'
+    $cl.Location = '14,66'; $cl.AutoSize = $true
+    $lf = New-Label 'Folder:'; $lf.Location = '14,102'
+    $tb = New-Object Windows.Forms.TextBox; $tb.Location = '14,124'; $tb.Width = 440
+    $br = New-Object Windows.Forms.Button; $br.Text = 'Browse...'; $br.Location = '462,122'; $br.AutoSize = $true
+    $br.Add_Click({ $fb = New-Object Windows.Forms.FolderBrowserDialog; $fb.SelectedPath = $tb.Text; if ($fb.ShowDialog() -eq 'OK') { $tb.Text = $fb.SelectedPath } })
+    if ($c) { $code.Checked = [bool]$c.openCode; $cl.Checked = [bool]$c.resumeClaude; $tb.Text = $c.folder } else { $code.Checked = $true; $cl.Checked = $true }
+    $ok  = New-Object Windows.Forms.Button; $ok.Text = 'Apply'; $ok.Location = '14,200'; $ok.AutoSize = $true; $ok.DialogResult = 'OK'
+    $now = New-Object Windows.Forms.Button; $now.Text = 'Run now'; $now.Location = '110,200'; $now.AutoSize = $true; $now.DialogResult = 'Retry'
+    $off = New-Object Windows.Forms.Button; $off.Text = 'Turn off'; $off.Location = '206,200'; $off.AutoSize = $true; $off.DialogResult = 'Abort'
+    $no  = New-Object Windows.Forms.Button; $no.Text = 'Cancel'; $no.Location = '460,200'; $no.AutoSize = $true; $no.DialogResult = 'Cancel'
+    $d.Controls.AddRange(@($l, $code, $cl, $lf, $tb, $br, $ok, $now, $off, $no)); $d.AcceptButton = $ok; $d.CancelButton = $no
+    $r = $d.ShowDialog($form)
+    try {
+        switch ("$r") {
+            'OK'    { & $DevScript -Configure -Folder $tb.Text -Claude:$cl.Checked -NoCode:(-not $code.Checked) 6>$null | Out-Null
+                      $status.Text = 'Dev box resume saved.' }
+            'Retry' { & $DevScript -Configure -Folder $tb.Text -Claude:$cl.Checked -NoCode:(-not $code.Checked) 6>$null | Out-Null
+                      Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$DevScript`"", '-Now' }
+            'Abort' { & $DevScript -Disable 6>$null | Out-Null; $status.Text = 'Dev box resume turned off.' }
+        }
+    } catch { [Windows.Forms.MessageBox]::Show("Dev box: $($_.Exception.Message)") | Out-Null }
+    Update-All
+}
+
+# RustDesk on a phone or tablet. NOT on Google Play (removed in 2023): Android installs come
+# from RustDesk's GitHub release (APK) or F-Droid. QR images: tools\Make-MobileQr.py.
+$MobileLinks = [ordered]@{
+    'Android: RustDesk APK (GitHub)' = 'https://github.com/rustdesk/rustdesk/releases/download/1.5.0/rustdesk-1.5.0-aarch64-signed.apk'
+    'Android: F-Droid'               = 'https://f-droid.org/packages/com.carriez.flutter_hbb/'
+    'Android: all builds'            = 'https://github.com/rustdesk/rustdesk/releases/latest'
+    'iPhone / iPad: App Store'       = 'https://apps.apple.com/app/rustdesk-remote-desktop/id1581225015'
+}
+function Show-MobileDialog { [void](New-MobileDialog).ShowDialog($form) }
+function New-MobileDialog {
+    $d = New-Object Windows.Forms.Form
+    $d.Text = 'Control your PCs from a phone or tablet'; $d.ClientSize = '660,610'; $d.FormBorderStyle = 'FixedDialog'
+    $d.StartPosition = 'CenterParent'; $d.MaximizeBox = $false; $d.MinimizeBox = $false; $d.Font = $Font
+    $col = 0
+    foreach ($side in @(@{ Title = 'Android  (phone, foldable, tablet)'; Png = 'rustdesk-android.png'; Keys = @('Android: RustDesk APK (GitHub)', 'Android: F-Droid', 'Android: all builds') },
+                        @{ Title = 'iPhone / iPad'; Png = 'rustdesk-ios.png'; Keys = @('iPhone / iPad: App Store') })) {
+        $x = 20 + 330 * $col; $col++
+        $t = New-Label $side.Title $Bold; $t.Location = "$x,14"; $d.Controls.Add($t)
+        $png = Join-Path $PSScriptRoot "mobile\$($side.Png)"
+        if (Test-Path $png) {
+            # native size: scaling a QR code by a non-integer factor blurs its modules and hurts scanning
+            $p = New-Object Windows.Forms.PictureBox; $p.Image = [Drawing.Image]::FromFile($png); $p.SizeMode = 'AutoSize'
+            $p.Location = "$x,44"; $d.Controls.Add($p)
+        }
+        $y = 290
+        foreach ($k in $side.Keys) {
+            $l = New-Object Windows.Forms.LinkLabel; $l.Text = $k; $l.Tag = $MobileLinks[$k]; $l.AutoSize = $true; $l.Location = "$x,$y"
+            $l.Add_LinkClicked({ Start-Process $this.Tag }); $d.Controls.Add($l); $y += 24
+        }
+    }
+    $me = (Get-Machines | Where-Object { $_.Name -eq $env:COMPUTERNAME } | Select-Object -First 1).IP
+    $net = if ($me -match '^(\d+\.\d+\.\d+)\.\d+$') { "$($Matches[1]).x" } else { 'the PCs'' network' }
+    $steps = New-Object Windows.Forms.Label; $steps.Location = '20,370'; $steps.Size = '620,96'
+    $steps.Text = "1. Scan a code with the phone's camera and install RustDesk (Android: allow your browser to install the app, or use F-Droid).`r`n" +
+                  "2. Put the phone on the same Wi-Fi network as the PCs -- its address should start like $net`r`n" +
+                  "3. In RustDesk, type a PC's address below, connect with your RustDesk password, and add it to Favourites.`r`n" +
+                  "   Unfolded and sideways works best; Display > Scale adaptive."
+    $d.Controls.Add($steps)
+    $list = New-Object Windows.Forms.TextBox; $list.Multiline = $true; $list.ReadOnly = $true; $list.ScrollBars = 'Vertical'
+    $list.Location = '20,474'; $list.Size = '620,90'; $list.Font = New-Object Drawing.Font('Consolas', 10)
+    $list.Text = (Get-Machines | ForEach-Object { '{0,-20} {1}' -f $_.Name, $_.IP }) -join "`r`n"
+    $d.Controls.Add($list)
+    $ok = New-Object Windows.Forms.Button; $ok.Text = 'Close'; $ok.Location = '560,574'; $ok.AutoSize = $true; $ok.DialogResult = 'OK'
+    $d.Controls.Add($ok); $d.AcceptButton = $ok
+    $d
+}
+
 # ---------------------------------------------------------------- actions
 function Connect-Machine($m) {
     if (-not (Test-Path $RustDeskExe)) { [Windows.Forms.MessageBox]::Show('RustDesk is not installed here. Run Setup-Synergy.cmd.') | Out-Null; return }
@@ -233,6 +336,8 @@ if ($Check) {
     "Hotkeys: $($si.Hotkeys)"
     "RustDesk password saved on this PC: $([bool][DeskCred]::Read($CredTarget))"
     "Automatic sign-in: $(Get-AutoLogonInfo)"
+    "Windows Update restarts: $(Get-UpdateRestartInfo)"
+    "Dev box resume: $(Get-DevBoxInfo)"
     return
 }
 
@@ -366,6 +471,8 @@ function Update-All {
         $synFlow.Controls.Add((New-Label "Using: $($si.Provider)      Role: $($si.Role)      Service: $($si.Service)" $Bold))
         $synFlow.Controls.Add((New-Label "Hotkeys: $($si.Hotkeys)"))
         $synFlow.Controls.Add((New-Label "Automatic sign-in at boot: $(Get-AutoLogonInfo)"))
+        $synFlow.Controls.Add((New-Label "Windows Update restarts: $(Get-UpdateRestartInfo)"))
+        $synFlow.Controls.Add((New-Label "Dev box resume: $(Get-DevBoxInfo)"))
         if ($si.Links) { $synFlow.Controls.Add((New-Label 'Layout (screen  edge ->  neighbour):')); $si.Links | ForEach-Object { $synFlow.Controls.Add((New-Label "      $_")) } }
         $btns = New-Object Windows.Forms.FlowLayoutPanel; $btns.AutoSize = $true; $btns.Margin = '0,8,0,0'
         if ($si.Provider -ne 'None') {
@@ -375,6 +482,7 @@ function Update-All {
                 Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile', '-Command', "Get-Service | Where-Object { `$_.DisplayName -match '$p' -and `$_.StartType -ne 'Disabled' } | Restart-Service" }))
         }
         $btns.Controls.Add((New-Button 'Automatic sign-in...' $null { Show-AutoLogonDialog }))
+        $btns.Controls.Add((New-Button 'Dev box...' $null { Show-DevBoxDialog }))
         $btns.Controls.Add((New-Button 'Re-run setup on this PC' $null { Start-Process (Join-Path $Root 'Setup-Synergy.cmd') }))
         $synFlow.Controls.Add($btns)
         $synFlow.ResumeLayout()
@@ -392,12 +500,22 @@ $bar.Controls.Add((New-Button 'RustDesk password...' $null {
     $d.Controls.AddRange(@($t, $ok)); $d.AcceptButton = $ok
     if ($d.ShowDialog($form) -eq 'OK' -and $t.Text) { [DeskCred]::Write($CredTarget, 'rustdesk', $t.Text); Update-All }
 }))
+$bar.Controls.Add((New-Button 'Phone / tablet...' $null { Show-MobileDialog }))
 $bar.Controls.Add((New-Button 'Open share' $null { Start-Process explorer.exe $Root }))
 $bar.Controls.Add($status)
 
 $timer = New-Object Windows.Forms.Timer; $timer.Interval = 15000; $timer.Add_Tick({ Update-All })
 $poll  = New-Object Windows.Forms.Timer; $poll.Interval = 250;     $poll.Add_Tick({ try { Apply-Probes } catch { $status.Text = "Refresh failed: $($_.Exception.Message)" } })
 $poll.Start()
+if ($SnapshotMobile) {
+    $md = New-MobileDialog; $md.StartPosition = 'Manual'; $md.Location = '-3000,-3000'; $md.ShowInTaskbar = $false
+    $md.Add_Shown({
+        [Windows.Forms.Application]::DoEvents()
+        $bmp = New-Object Drawing.Bitmap $md.Width, $md.Height
+        $md.DrawToBitmap($bmp, (New-Object Drawing.Rectangle 0, 0, $md.Width, $md.Height))
+        $bmp.Save($SnapshotMobile, [Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose(); $md.Close() })
+    [void]$md.ShowDialog(); return
+}
 if ($Snapshot) {
     $form.StartPosition = 'Manual'; $form.Location = '-3000,-3000'; $form.ShowInTaskbar = $false
     $form.Add_Shown({

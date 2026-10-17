@@ -30,7 +30,11 @@ src\                     what gets installed and what lives in the shared folder
   Install-DeskConsole.ps1  script-only install, self-update
   *.cmd, desk-console.ico, version.txt
 installer\DeskConsole.iss  Inno Setup definition
-tools\                   Get-Redist.ps1, Diag-Smb.ps1, Make-Icon.ps1
+  Start-DevBox.ps1       dev box: reopen VS Code / resume Claude at sign-in
+  mobile\*.png           phone QR codes shown by Desk Console
+installer\mobile\*.bmp   the same QR codes at installer size
+tools\                   Get-Redist.ps1, Diag-Smb.ps1, Make-Icon.ps1,
+                         Make-MobileQr.py + Convert-QrBmp.ps1 (regenerate the QR codes: pip install segno)
 docs\wiki\               these pages
 site.example.json        template for the shared folder's site.json
 ```

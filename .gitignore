@@ -15,3 +15,7 @@ dist/
 
 # editor
 .vscode/
+
+# per-PC dev box state (lives in the install folder)
+devbox.json
+devbox.log

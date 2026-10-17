@@ -14,10 +14,11 @@ Start Menu > **Desk Console** (or `Desk-Console.cmd` in the shared folder, witho
     saved password.
   - **Wake** -- Wake-on-LAN magic packet to the PC's MAC (enable WoL in its BIOS/network card).
 - **Toolbar** -- Refresh, *Connect all*, *RustDesk password...* (saved in this PC's Credential
-  Manager as `DeskConsole:RustDesk`), *Open share*.
-- **This PC panel** -- keyboard/mouse program, role, service state, hotkeys, automatic sign-in
-  state, the screen layout, and buttons: open the program, restart it, *Automatic sign-in...*,
-  re-run setup.
+  Manager as `DeskConsole:RustDesk`), **Phone / tablet...** (QR codes to install RustDesk on a phone,
+  plus every PC's address -- see [Remote Control](Remote-Control#from-a-phone-or-tablet)), *Open share*.
+- **This PC panel** -- keyboard/mouse program, role, service state, hotkeys, automatic sign-in,
+  [Windows Update](Windows-Update) restarts, [dev box](Dev-Box) resume, the screen layout, and
+  buttons: open the program, restart it, *Automatic sign-in...*, **Dev box...**, re-run setup.
 
 Desk Console never connects to Deskflow's port 24800: Deskflow logs every plain connection
 there as *failed to accept secure socket*.

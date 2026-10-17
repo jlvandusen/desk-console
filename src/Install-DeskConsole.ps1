@@ -36,7 +36,8 @@ $Lnks     = @{
     Startup   = Join-Path $Programs 'Startup\Desk Console.lnk'
 }
 $Key      = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskConsole'
-$Files    = 'Desk-Console.ps1', 'desk-console.ico', 'version.txt', 'Install-DeskConsole.ps1', 'Setup-Synergy.ps1'
+$Files    = 'Desk-Console.ps1', 'desk-console.ico', 'version.txt', 'Install-DeskConsole.ps1', 'Setup-Synergy.ps1',
+            'Set-NoAutoRestart.cmd', 'Start-DevBox.ps1', 'mobile\rustdesk-android.png', 'mobile\rustdesk-ios.png'
 
 function Say($m, $c = 'Cyan') { if (-not $Quiet) { Write-Host "[Desk Console] $m" -ForegroundColor $c } }
 
@@ -54,7 +55,12 @@ if ($Uninstall) {
 
 $src = if (Test-Path (Join-Path $Share 'Desk-Console.ps1')) { $Share } else { $PSScriptRoot }
 New-Item -ItemType Directory -Force $Dir | Out-Null
-foreach ($f in $Files) { Copy-Item (Join-Path $src $f) (Join-Path $Dir $f) -Force }
+foreach ($f in $Files) {
+    $from = Join-Path $src $f; $to = Join-Path $Dir $f
+    if (-not (Test-Path $from)) { continue }   # optional files (e.g. phone QR images) a share may not have yet
+    New-Item -ItemType Directory -Force (Split-Path $to -Parent) | Out-Null
+    Copy-Item $from $to -Force
+}
 # site.json tells the installed copy where the shared folder is: the share's own, else one
 # that points at the folder we installed from
 if (Test-Path (Join-Path $src 'site.json')) { Copy-Item (Join-Path $src 'site.json') (Join-Path $Dir 'site.json') -Force }

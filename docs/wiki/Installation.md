@@ -30,7 +30,9 @@ On the PC the **keyboard and mouse are plugged into**, run the installer:
 | Shared folder login | The share's user name and password (blank password = keep a login already saved) |
 | RustDesk password | The password other PCs will use to control this one -- **use the same on every PC** |
 | Automatic sign-in | See [Automatic Sign-In](Automatic-Sign-In); "Leave it as it is" is fine |
-| Options | Desktop shortcut, open at sign-in, lock after automatic sign-in |
+| Dev box (optional) | Reopen VS Code / resume Claude Code at sign-in, and the folder -- see [Dev Box](Dev-Box) |
+| Phone or tablet | QR codes to install RustDesk on a phone -- see [Remote Control](Remote-Control#from-a-phone-or-tablet) |
+| Options | Desktop shortcut, open at sign-in, lock after automatic sign-in, [Windows Update](Windows-Update) restarts (ticked) |
 
 Approve the UAC prompt. A PowerShell window shows each step; setup closes it when done and
 offers to open Desk Console.

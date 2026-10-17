@@ -18,6 +18,29 @@ Desk Console > a PC's **View + control** (or *Connect all*). Or in RustDesk, typ
 Setup never restarts RustDesk while someone is connected through it, so you can re-run the
 installer on a PC from a RustDesk session.
 
+## From a phone or tablet
+
+RustDesk has Android and iOS apps, so you can control the PCs from a phone -- a foldable unfolded
+is close to a small tablet.
+
+- **Installer** > *Phone or tablet* page and **Desk Console** > **Phone / tablet...** show QR codes:
+  scan with the phone's camera to open the download.
+  - **Android:** RustDesk is **not on Google Play** (it was removed in 2023). Install the APK from
+    RustDesk's GitHub release (the QR code links the arm64 APK of the same version the PCs run) or
+    from [F-Droid](https://f-droid.org/packages/com.carriez.flutter_hbb/). Android asks you to allow
+    the browser to install apps.
+  - **iPhone / iPad:** [App Store](https://apps.apple.com/app/rustdesk-remote-desktop/id1581225015).
+- Put the phone on the **same network as the PCs**. The firewall allows RustDesk from the local
+  subnet only, so a phone on a guest network or a second router's Wi-Fi cannot connect. Desk
+  Console's dialog shows the address prefix to expect and every PC's address.
+- In RustDesk, type a PC's address, connect with the RustDesk password and add it to Favourites.
+- Unfolded and sideways with *Display > Scale adaptive* works best. Touch mode taps to click; mouse
+  mode behaves like a trackpad. A Bluetooth keyboard and mouse paired with the phone work too.
+- Give the PCs **DHCP reservations** on your router so their addresses never change.
+
+Away from home is not set up: it needs a private network between your devices (for example a
+VPN such as Tailscale) rather than opening ports on the router.
+
 ## Full screen and resolutions
 
 In the RustDesk session toolbar:

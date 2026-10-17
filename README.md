@@ -11,8 +11,14 @@ Desk Console ties together three free tools and handles the fiddly parts between
 | See and control a PC's screen | **[RustDesk](https://github.com/rustdesk/rustdesk)** | Direct-IP on your LAN only (no relay), runs as a service so it works at the lock screen, one password for every PC |
 | Watch everything | **Desk Console** (this app) | One card per PC: online, keyboard/mouse role, RustDesk reachable; *View + control*, *Wake-on-LAN*, *Connect all* |
 
-Plus: **automatic sign-in** at boot (password stored encrypted in the LSA store, like
-Sysinternals Autologon -- never as plain text), optionally locking the screen straight after.
+Plus, per PC:
+
+- **Automatic sign-in** at boot (password stored encrypted in the LSA store, like Sysinternals
+  Autologon -- never as plain text), optionally locking the screen straight after.
+- **No surprise restarts:** Windows Update waits for you while someone is signed in.
+- **Dev box:** reopen VS Code on your project and resume Claude Code (`claude --continue`) at sign-in.
+- **Phones and tablets:** QR codes in the installer and the app to install RustDesk on a phone
+  (even a foldable) and control the PCs from it.
 
 ## Quick start
 

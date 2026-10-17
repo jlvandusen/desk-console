@@ -35,7 +35,11 @@
   is invisible in Explorer. That is why phase 1 runs un-elevated.
 #>
 param(
-    [ValidateSet('All','User','Admin','Finish','AutoLogon','TrustSync')] [string]$Phase = 'All',
+    [ValidateSet('All','User','Admin','Finish','AutoLogon','TrustSync','Updates')] [string]$Phase = 'All',
+    [ValidateSet('','Enable','Disable')] [string]$NoAutoRestart = '',   # Windows Update: no restart while someone is signed in
+    [string]$DevBoxFolder = '',     # dev box: reopen VS Code on this folder at sign-in (Finish step, as the user)
+    [switch]$DevBoxClaude,          # ...and open a terminal running `claude --continue` there
+    [switch]$DevBoxNoCode,          # ...Claude only, no VS Code
     [ValidateSet('','Enable','Disable')] [string]$AutoLogon = '',   # Windows automatic sign-in at boot
     [switch]$AutoLogonLock,                                         # ...then lock the screen right away
     [ValidateSet('','Synergy','Deskflow','None')] [string]$Kvm = '',
@@ -499,6 +503,28 @@ function Set-AutoLogon {
     if ($pol.LegalNoticeCaption -or $pol.LegalNoticeText) { Say 'A sign-in notice (policy) is set on this PC -- it stops automatic sign-in until it is cleared.' Yellow }
 }
 
+# ---------------------------------------------------------------- Windows Update restarts
+# The value behind the Group Policy "Computer Configuration > Administrative Templates > Windows
+# Components > Windows Update > No auto-restart with logged on users for scheduled automatic
+# updates installations" (Pro/Enterprise/Education honour it; Home ignores it). Updates still
+# download and install; the restart waits until you do it. With automatic sign-in someone is
+# always signed in, so a PC you reach only remotely is never restarted from under you.
+# Written straight to the policy key, so gpedit.msc shows "Not configured" even though it is in force.
+$WuAuKey = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+function Set-NoAutoRestart {
+    if ($NoAutoRestart -eq 'Disable') {
+        Remove-ItemProperty $WuAuKey -Name NoAutoRebootWithLoggedOnUsers -ErrorAction SilentlyContinue
+        Say 'Windows Update may restart this PC again (Windows default).' Green
+        return
+    }
+    New-Item $WuAuKey -Force | Out-Null
+    New-ItemProperty $WuAuKey -Name NoAutoRebootWithLoggedOnUsers -Value 1 -PropertyType DWord -Force | Out-Null
+    $ed = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction SilentlyContinue).EditionID
+    Say "Windows Update will not restart this PC while someone is signed in ($ed)." Green
+    if ($ed -match 'Core|Home') { Say 'This is Windows Home, which ignores this policy.' Yellow }
+    if ((Get-CimInstance Win32_ComputerSystem).PartOfDomain) { Say 'Domain-joined: a domain Group Policy can override this setting.' Yellow }
+}
+
 function Register-Machine {
     # wired before Wi-Fi, then the adapter with the default gateway, then lowest metric
     # (a desktop once registered its Wi-Fi address, which sleeps; its wired one answers).
@@ -536,6 +562,9 @@ function Invoke-AdminPhase {
     Install-RustDesk
     if ($AutoLogon) {
         try { Set-AutoLogon } catch { Say "Automatic sign-in NOT changed: $($_.Exception.Message)" Red }   # don't lose the rest of setup
+    }
+    if ($NoAutoRestart) {
+        try { Set-NoAutoRestart } catch { Say "Windows Update restart setting NOT changed: $($_.Exception.Message)" Red }
     }
     Register-Machine
     Write-Host '   Control everything from Desk Console (Start Menu).'
@@ -782,13 +811,30 @@ trap {
     Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
     Write-Host "PowerShell $($PSVersionTable.PSVersion)  user $env:USERNAME  admin $(Test-Admin)" -ForegroundColor DarkGray
     try { Stop-Transcript | Out-Null } catch {}
-    if ($Phase -in 'Admin', 'AutoLogon') { Read-Host 'Press Enter to close' | Out-Null }
+    if ($Phase -in 'Admin', 'AutoLogon', 'Updates') { Read-Host 'Press Enter to close' | Out-Null }
     exit 1
 }
 switch ($Phase) {
     'User'  { Invoke-UserPhase; if (-not $FromInstaller) { Set-DeskflowUser } }
     'Admin' { Invoke-AdminPhase; if (-not $FromInstaller) { Write-Host ''; Read-Host 'Done. Press Enter to close this window' | Out-Null } }
-    'Finish' { Set-DeskflowUser }
+    'Finish' {
+        Set-DeskflowUser
+        if ($DevBoxFolder) {   # per-user sign-in task, so this runs as the signed-in user (not elevated)
+            try {
+                & (Join-Path $PSScriptRoot 'Start-DevBox.ps1') -Configure -Folder $DevBoxFolder -Claude:$DevBoxClaude -NoCode:$DevBoxNoCode
+            } catch { Say "Dev box resume NOT set: $($_.Exception.Message)" Red }
+        }
+    }
+    'Updates' {     # elevated, from Set-NoAutoRestart.cmd
+        if (-not $NoAutoRestart) { $NoAutoRestart = 'Enable' }
+        if (-not (Test-Admin)) {   # ask for admin once; the elevated window cannot see mapped drives
+            Start-Process powershell.exe -Verb RunAs -Wait -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass',
+                '-File', "`"$(ConvertTo-Unc $PSCommandPath)`"", '-Phase', 'Updates', '-NoAutoRestart', $NoAutoRestart
+            return
+        }
+        Set-NoAutoRestart
+        if (-not $FromInstaller) { Write-Host ''; Read-Host 'Done. Press Enter to close this window' | Out-Null }
+    }
     'AutoLogon' {   # elevated, from Desk Console's "Automatic sign-in..." button
         if (-not $AutoLogon) { throw 'Pass -AutoLogon Enable or -AutoLogon Disable.' }
         Set-AutoLogon

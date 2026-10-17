@@ -41,6 +41,7 @@ UninstallDisplayIcon={app}\desk-console.ico
 UninstallDisplayName=Desk Console
 LicenseFile=..\LICENSE
 WizardStyle=modern
+WizardSizePercent=115
 Compression=lzma2/max
 SolidCompression=yes
 SetupLogging=yes
@@ -53,6 +54,7 @@ RestartApplications=no
 Name: desktopicon; Description: "Desktop shortcut"
 Name: autostart;   Description: "Open Desk Console when I sign in"; Flags: unchecked
 Name: autolock;    Description: "After an automatic sign-in, lock the screen straight away (recommended)"; Check: AutoLogonOn
+Name: noautorestart; Description: "Windows Update: don't restart this PC by itself while someone is signed in (Pro / Enterprise)"
 
 [Files]
 Source: "..\src\Desk-Console.ps1";        DestDir: "{app}"; Flags: ignoreversion
@@ -61,6 +63,12 @@ Source: "..\src\Install-DeskConsole.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\desk-console.ico";        DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\version.txt";             DestDir: "{app}"; Flags: ignoreversion
 Source: "..\THIRD-PARTY-NOTICES.md";      DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\Set-NoAutoRestart.cmd";   DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\Start-DevBox.ps1";        DestDir: "{app}"; Flags: ignoreversion
+Source: "..\src\mobile\*.png";           DestDir: "{app}\mobile"; Flags: ignoreversion
+; QR codes for the installer's phone page (3 px per module; extracted to {tmp} only)
+Source: "mobile\rustdesk-android.bmp"; Flags: dontcopy
+Source: "mobile\rustdesk-ios.bmp";     Flags: dontcopy
 ; the shared folder's own site.json, when setup is run from it
 Source: "{src}\site.json"; DestDir: "{app}"; Flags: external skipifsourcedoesntexist ignoreversion
 Source: "redist\rustdesk-1.5.0-x86_64.msi";   DestDir: "{tmp}"; Flags: deleteafterinstall
@@ -84,11 +92,11 @@ Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Setup-Synergy.ps1"" -Phase User -FromInstaller -SecretsFile ""{tmp}\ds-secrets.txt"" {code:KvmArgs}"; \
   StatusMsg: "Saving the share login..."; Flags: runhidden waituntilterminated; BeforeInstall: WriteSecrets
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Setup-Synergy.ps1"" -Phase Admin -FromInstaller -SecretsFile ""{tmp}\ds-secrets.txt"" -InstallerDir ""{tmp}"" {code:AutoLogonArgs}"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Setup-Synergy.ps1"" -Phase Admin -FromInstaller -SecretsFile ""{tmp}\ds-secrets.txt"" -InstallerDir ""{tmp}"" {code:AutoLogonArgs} {code:UpdatesArgs}"; \
   StatusMsg: "Installing keyboard/mouse sharing and RustDesk (approve the Windows prompt)..."; \
   Flags: shellexec waituntilterminated; Verb: runas
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \
-  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Setup-Synergy.ps1"" -Phase Finish -FromInstaller"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Setup-Synergy.ps1"" -Phase Finish -FromInstaller {code:DevBoxArgs}"; \
   StatusMsg: "Configuring Deskflow..."; Flags: runhidden waituntilterminated; AfterInstall: DeleteSecrets
 Filename: "{sys}\conhost.exe"; \
   Parameters: "--headless {sys}\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\Desk-Console.ps1"""; \
@@ -110,6 +118,9 @@ FinishedLabel=Desk Console is installed.%n%nRun this installer on every PC (the 
 var
   KvmPage, RolePage, AlPage: TInputOptionWizardPage;
   SitePage, NasPage, RdPage, AlCredPage: TInputQueryWizardPage;
+  DevPage: TInputOptionWizardPage;
+  DevDirPage: TInputDirWizardPage;
+  PhonePage: TWizardPage;
   DefProvider, DefServer, ShareFromSite, UserFromSite: String;
 
 // value of "key": "value" in a small JSON file; '' when absent (JSON \\ unescaped)
@@ -156,8 +167,64 @@ begin
   end;
 end;
 
+// "key": true in a small JSON file
+function JsonBool(const S, Key: String): Boolean;
+var p: Integer;
+begin
+  Result := False;
+  p := Pos('"' + Key + '"', S); if p = 0 then exit;
+  Result := Pos('true', Lowercase(Copy(S, p + Length(Key) + 2, 12))) > 0;
+end;
+
+// ---- phone / tablet page: QR codes that open the RustDesk app download (RustDesk is NOT on
+// Google Play since 2023 -- Android installs come from its GitHub APK or F-Droid)
+function MobileUrl(I: Integer): String;
+begin
+  case I of
+    0: Result := 'https://github.com/rustdesk/rustdesk/releases/download/1.5.0/rustdesk-1.5.0-aarch64-signed.apk';
+    1: Result := 'https://f-droid.org/packages/com.carriez.flutter_hbb/';
+    2: Result := 'https://apps.apple.com/app/rustdesk-remote-desktop/id1581225015';
+  else Result := '';
+  end;
+end;
+
+procedure MobileLinkClick(Sender: TObject);
+var RC: Integer;
+begin
+  ShellExec('open', MobileUrl(TComponent(Sender).Tag), '', '', SW_SHOWNORMAL, ewNoWait, RC);
+end;
+
+function AddText(Page: TWizardPage; const S: String; X, Y: Integer; Bold: Boolean; Link: Integer): TNewStaticText;
+begin
+  Result := TNewStaticText.Create(Page);
+  Result.Parent := Page.Surface;
+  Result.Caption := S;
+  Result.Left := X;
+  Result.Top := Y;
+  if Bold then Result.Font.Style := [fsBold];
+  if Link >= 0 then begin
+    Result.Font.Color := clBlue;
+    Result.Font.Style := [fsUnderline];
+    Result.Cursor := crHand;
+    Result.Tag := Link;
+    Result.OnClick := @MobileLinkClick;
+  end;
+end;
+
+// QR bitmaps are shown at their exact pixel size: a scaled QR code scans badly
+function AddQr(Page: TWizardPage; const Bmp: String; X, Y: Integer): TBitmapImage;
+begin
+  ExtractTemporaryFile(Bmp);
+  Result := TBitmapImage.Create(Page);
+  Result.Parent := Page.Surface;
+  Result.AutoSize := True;
+  Result.Bitmap.LoadFromFile(ExpandConstant('{tmp}\') + Bmp);
+  Result.Left := X;
+  Result.Top := Y;
+end;
+
 procedure InitializeWizard;
-var ServerText: String;
+var ServerText, DevJson: String; A: AnsiString; Q: TBitmapImage; T: TNewStaticText; Y1, Y2: Integer;
 begin
   ReadDefaults;
 
@@ -225,6 +292,69 @@ begin
   AlCredPage.Add('Account:', False);
   AlCredPage.Add('Password:', True);
   AlCredPage.Add('Confirm password:', True);
+
+  // Dev box: reopen VS Code on a folder and resume Claude Code at sign-in (Start-DevBox.ps1)
+  DevPage := CreateInputOptionPage(AlCredPage.ID, 'Dev box (optional)',
+    'Reopen your work every time you sign in?',
+    'For a development PC: at each sign-in -- including an automatic one -- reopen VS Code on a ' +
+    'folder, and resume your last Claude Code chat there with "claude --continue". It runs as you. ' +
+    'Leave both unticked to keep this PC''s current setting; change it any time in Desk Console > Dev box.',
+    False, False);
+  DevPage.Add('Reopen VS Code on a folder at sign-in');
+  DevPage.Add('Also open a terminal running  claude --continue  in that folder');
+  DevDirPage := CreateInputDirPage(DevPage.ID, 'Dev box folder', 'Which folder should reopen?',
+    'Pick the project folder, for example your repository.', False, '');
+  DevDirPage.Add('');
+  if LoadStringFromFile(ExpandConstant('{localappdata}\Programs\DeskConsole\devbox.json'), A) then begin
+    DevJson := String(A);
+    DevDirPage.Values[0] := JsonStr(DevJson, 'folder');
+    DevPage.Values[0] := JsonBool(DevJson, 'openCode');
+    DevPage.Values[1] := JsonBool(DevJson, 'resumeClaude');
+  end;
+
+  // Phone or tablet: install RustDesk by scanning, then connect to the PCs
+  PhonePage := CreateCustomPage(DevDirPage.ID, 'Phone or tablet (optional)',
+    'Control these PCs from a phone or tablet too');
+  AddText(PhonePage, 'Android  (phone, foldable, tablet)', 0, 0, True, -1);
+  Q := AddQr(PhonePage, 'rustdesk-android.bmp', 0, ScaleY(20));
+  Y1 := Q.Top + Q.Height + ScaleY(6);
+  AddText(PhonePage, 'RustDesk APK (GitHub)', 0, Y1, False, 0);
+  AddText(PhonePage, 'F-Droid', 0, Y1 + ScaleY(18), False, 1);
+  AddText(PhonePage, 'iPhone / iPad', ScaleX(250), 0, True, -1);
+  Q := AddQr(PhonePage, 'rustdesk-ios.bmp', ScaleX(250), ScaleY(20));
+  Y2 := Q.Top + Q.Height + ScaleY(6);
+  AddText(PhonePage, 'App Store', ScaleX(250), Y2, False, 2);
+  if Y2 > Y1 + ScaleY(18) then Y1 := Y2 else Y1 := Y1 + ScaleY(18);
+  T := AddText(PhonePage, 'Scan a code with the phone''s camera to install RustDesk (it is not on Google Play; ' +
+    'Android uses the APK or F-Droid). Put the phone on the same Wi-Fi as these PCs, then connect to a PC''s ' +
+    'address with your RustDesk password. Desk Console > Phone / tablet... shows this again with every PC''s address.',
+    0, Y1 + ScaleY(24), False, -1);
+  T.AutoSize := False;
+  T.WordWrap := True;
+  T.Width := PhonePage.SurfaceWidth;
+  T.Height := ScaleY(60);
+end;
+
+function DevBoxOn: Boolean;
+begin
+  Result := (DevPage <> nil) and (DevPage.Values[0] or DevPage.Values[1]);
+end;
+
+function DevBoxArgs(Param: String): String;
+var F: String;
+begin
+  Result := '';
+  if not DevBoxOn then exit;
+  F := Trim(DevDirPage.Values[0]);
+  while (Length(F) > 3) and (F[Length(F)] = '\') do F := Copy(F, 1, Length(F) - 1);   // "C:\x\" would escape the quote
+  Result := '-DevBoxFolder "' + F + '"';
+  if DevPage.Values[1] then Result := Result + ' -DevBoxClaude';
+  if not DevPage.Values[0] then Result := Result + ' -DevBoxNoCode';
+end;
+
+function UpdatesArgs(Param: String): String;
+begin
+  if WizardIsTaskSelected('noautorestart') then Result := '-NoAutoRestart Enable' else Result := '';
 end;
 
 function AutoLogonOn: Boolean;
@@ -236,7 +366,8 @@ function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := ((PageID = SitePage.ID) and SrcHasSite) or
             ((PageID = RolePage.ID) and (KvmPage.SelectedValueIndex = 2)) or
-            ((PageID = AlCredPage.ID) and not AutoLogonOn);
+            ((PageID = AlCredPage.ID) and not AutoLogonOn) or
+            ((PageID = DevDirPage.ID) and not DevBoxOn);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -302,6 +433,12 @@ begin
       Result := False;
     end else if AlCredPage.Values[1] <> AlCredPage.Values[2] then begin
       MsgBox('The two passwords are different.', mbError, MB_OK);
+      Result := False;
+    end;
+  end;
+  if CurPageID = DevDirPage.ID then begin
+    if not DirExists(Trim(DevDirPage.Values[0])) then begin
+      MsgBox('Pick a folder that exists on this PC.', mbError, MB_OK);
       Result := False;
     end;
   end;
@@ -374,6 +511,8 @@ begin
     2: Result := 'Install-DeskConsole.ps1';
     3: Result := 'desk-console.ico';
     4: Result := 'version.txt';
+    5: Result := 'Start-DevBox.ps1';
+    6: Result := 'Set-NoAutoRestart.cmd';
   else Result := '';
   end;
 end;
@@ -398,7 +537,7 @@ begin
   CloseDeskConsole;
   repeat
     Busy := '';
-    for I := 0 to 4 do
+    for I := 0 to 6 do
       if not SetAside(Dir + '\' + AppFile(I)) then Busy := Busy + #13#10 + '      ' + AppFile(I);
     if Busy = '' then exit;
     if MsgBox('Setup needs to replace these Desk Console files, but another program has them open:' + Busy + #13#10#13#10 +
@@ -416,7 +555,7 @@ end;
 procedure RestoreSetAside(Restore: Boolean);
 var I: Integer; F: String;
 begin
-  for I := 0 to 4 do begin
+  for I := 0 to 6 do begin
     F := ExpandConstant('{app}') + '\' + AppFile(I);
     if FileExists(F + '.old') then begin
       if Restore and not FileExists(F) then RenameFile(F + '.old', F)
