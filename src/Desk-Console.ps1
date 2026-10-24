@@ -143,6 +143,38 @@ elseif ($Installed -and -not $Headless) {
 
 Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices; using System.Text;
+public static class DeskWin {
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc p, IntPtr l);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int i);
+    [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr h, int i, int v);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int w, int cx, uint f);
+    // Visible top-level windows owned by any of the given processes.
+    public static long[] ForPids(int[] pids) {
+        var l = new System.Collections.Generic.List<long>();
+        EnumWindows((h, p) => { uint pid; GetWindowThreadProcessId(h, out pid);
+            if (IsWindowVisible(h) && Array.IndexOf(pids, (int)pid) >= 0) l.Add(h.ToInt64()); return true; }, IntPtr.Zero);
+        return l.ToArray();
+    }
+    public static string Title(long h) { var b = new StringBuilder(256); GetWindowText((IntPtr)h, b, 256); return b.ToString(); }
+    // A tool window has no taskbar button (and is not in Alt+Tab); the style only applies on a re-show.
+    public static void HideFromTaskbar(long h) {
+        var w = (IntPtr)h; ShowWindow(w, 0);
+        SetWindowLong(w, -20, (GetWindowLong(w, -20) | 0x80) & ~0x40000);
+        ShowWindow(w, 5);
+    }
+    public static void Activate(long h) { ShowWindow((IntPtr)h, 9); SetForegroundWindow((IntPtr)h); }
+    // Restore, then fill the rectangle (maximize would pick the monitor it was last on).
+    public static void Place(long h, int x, int y, int w, int ht) {
+        ShowWindow((IntPtr)h, 9); SetWindowPos((IntPtr)h, IntPtr.Zero, x, y, w, ht, 0x0044);
+        ShowWindow((IntPtr)h, 3);
+    }
+}
 public static class DeskCred {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     struct CREDENTIAL {
@@ -667,7 +699,57 @@ function Connect-Machine($m) {
     $a = '--connect ' + (ConvertTo-NativeArg $m.IP)
     $pw = [DeskCred]::Read($CredTarget)
     if ($pw) { $a += ' --password ' + (ConvertTo-NativeArg $pw) }
+    $before = Get-RustDeskWindows -Sessions
     Start-Process $RustDeskExe -ArgumentList $a
+    Watch-NewWindow $before (Get-ScreenFor $m)
+}
+
+# Each PC opens on the display that matches its place in the desk layout relative to this PC (which
+# stays on the primary display): left of me -> the display to the left, and so on. When there is no
+# such display (or the PC is not in my row) nothing is moved: it opens as a normal window.
+function Get-ScreenFor($m) {
+    $scr = @([Windows.Forms.Screen]::AllScreens | Sort-Object { $_.Bounds.X }, { $_.Bounds.Y })
+    if ($scr.Count -lt 2) { return $null }
+    $rows = Get-LayoutRows $script:Kvm
+    if ($null -eq $rows) { $rows = @(, @(Get-LayoutNames $script:Kvm)) }
+    foreach ($row in $rows) {
+        $r = @($row); $me = Find-Index $r $Me; $it = Find-Index $r $m.Name
+        if ($me -lt 0 -or $it -lt 0) { continue }
+        $prim = Find-Index ($scr | ForEach-Object { $_.Primary }) $true
+        $i = $prim + ($it - $me)
+        if ($i -ge 0 -and $i -lt $scr.Count) { return $scr[$i] }
+    }
+    $null
+}
+# RustDesk's own main window is titled just "RustDesk"; session windows are the others.
+function Get-RustDeskWindows([switch]$Sessions) {
+    $p = @(Get-Process -Name rustdesk -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+    if (-not $p.Count) { return @() }
+    $w = @([DeskWin]::ForPids([int[]]$p))
+    if ($Sessions) { $w = @($w | Where-Object { ($t = [DeskWin]::Title($_)) -and $t -ne 'RustDesk' }) }
+    $w
+}
+function Test-HideSessions { "$(Get-RegValue $UiKey 'HideSessionsFromTaskbar')" -eq '1' }
+$script:Placers = New-Object Collections.ArrayList
+function Watch-NewWindow($before, $screen) {   # RustDesk opens its window a moment later: poll up to 20 s
+    $t = New-Object Windows.Forms.Timer; $t.Interval = 500
+    $st = @{ Before = @($before); Screen = $screen; Tries = 0; Timer = $t }
+    $t.Tag = $st
+    $t.Add_Tick({
+        param($sender)
+        $x = $sender.Tag; $x.Tries++
+        $new = @(Get-RustDeskWindows -Sessions | Where-Object { $x.Before -notcontains $_ })
+        if ($new.Count -or $x.Tries -ge 40) {
+            $sender.Stop()
+            foreach ($h in $new) {
+                if ($x.Screen) { $b = $x.Screen.Bounds; [DeskWin]::Place($h, $b.X, $b.Y, $b.Width, $b.Height) }
+                if (Test-HideSessions) { [DeskWin]::HideFromTaskbar($h) }
+            }
+            $script:Placers.Remove($sender)
+            $sender.Dispose()
+        }
+    })
+    [void]$script:Placers.Add($t); $t.Start()
 }
 
 # Wake-on-LAN has to leave through the adapter on the target's network. A limited broadcast
@@ -1510,7 +1592,25 @@ $trayMenu = New-Object Windows.Forms.ContextMenuStrip
 [void]$trayMenu.Items.Add('Open Desk Console', $null, { Show-Main })
 [void]$trayMenu.Items.Add('Refresh', $null, { Invoke-FullRefresh })
 [void]$trayMenu.Items.Add('-')
+$hideItem = New-Object Windows.Forms.ToolStripMenuItem 'Hide RustDesk sessions from the taskbar'; $hideItem.CheckOnClick = $true
+$hideItem.Checked = Test-HideSessions
+$hideItem.Add_Click({
+    if (-not (Test-Path $UiKey)) { New-Item $UiKey | Out-Null }
+    Set-ItemProperty $UiKey -Name HideSessionsFromTaskbar -Value $(if ($hideItem.Checked) { '1' } else { '0' })
+})
+[void]$trayMenu.Items.Add($hideItem)
+[void]$trayMenu.Items.Add('-')
 [void]$trayMenu.Items.Add('Exit', $null, { Exit-App })
+# Sessions hidden from the taskbar are listed here to bring one back to the front.
+$trayMenu.Add_Opening({
+    foreach ($i in @($trayMenu.Items | Where-Object { $_.Tag -eq 'session' })) { $trayMenu.Items.Remove($i); $i.Dispose() }
+    $pos = 2
+    foreach ($h in @(Get-RustDeskWindows -Sessions)) {
+        $it = New-Object Windows.Forms.ToolStripMenuItem ([DeskWin]::Title($h)); $it.Tag = 'session'
+        $hh = $h; $it.Add_Click({ [DeskWin]::Activate($hh) }.GetNewClosure())
+        $trayMenu.Items.Insert($pos++, $it)
+    }
+})
 $script:TrayIcon.ContextMenuStrip = $trayMenu
 $script:TrayIcon.Add_MouseClick({ param($s, $e) if ("$($e.Button)" -eq 'Left') { Show-Main } })
 $script:TrayIcon.Add_BalloonTipClicked({ Show-Main; if (Test-WhatsNewPending) { Show-WhatsNew } })
