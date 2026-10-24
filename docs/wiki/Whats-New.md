@@ -1,5 +1,15 @@
 # What's New
 
+## Desk Console 1.8.1 (since 1.7.1)
+
+- **1.8.1: Deskflow stays in the notification area.** It starts hidden at sign-in, closing its
+  window keeps it running, and its tray icon opens it. Nothing to do: each PC's 2-minute task
+  switches it over once after the update; a later change in Deskflow's own settings stays.
+- **1.8.0: Each PC opens on its own display.** *View + control* (and *Open all*) put a PC's
+  RustDesk window on the display that matches its place in your desk layout.
+- **1.8.0, optional: hide RustDesk sessions from the taskbar.** Tray icon menu > *Hide RustDesk sessions
+  from the taskbar* (off by default); open sessions are listed in the tray menu.
+
 ## Desk Console 1.7.1 (since 1.6.0)
 
 ### 1.7.1 fixes three things in 1.7.0

@@ -4,6 +4,20 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.1] - 2026-10-24
+
+Copy the new scripts to the shared folder: installed copies update themselves, and no setup run
+is needed.
+
+### Changed
+
+- **Deskflow stays in the notification area.** Its window no longer opens at sign-in or sits on
+  the taskbar: Deskflow starts hidden, closing its window keeps it running, and its tray icon
+  opens it. On a PC set up earlier, the 2-minute task applies this once for each user, within a
+  few minutes of the update (Deskflow's window restarts once; the keyboard and mouse stay
+  connected). Change it afterwards in Deskflow's own settings and it stays changed. Setup applies
+  it as well.
+
 ## [1.8.0] - 2026-10-24
 
 Copy the new scripts to the shared folder: installed copies update themselves.

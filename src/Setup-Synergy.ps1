@@ -1400,6 +1400,33 @@ function Get-DeskflowServerOptions($opts) {
     $ini
 }
 
+# Notification area only (MainWindow.cpp v1.27.0): autoHide starts the window hidden, closeToTray
+# makes X hide it, closeReminder is the "still running" box on the first close.
+$DeskflowTrayIni = [ordered]@{ 'gui/autoHide' = 'true'; 'gui/closeToTray' = 'true'; 'gui/closeReminder' = 'false' }
+
+# 1.8.1, from the 2-minute task: the same on a PC set up before it, without a setup run. Once per
+# user (HKCU DeskflowTray), so a later change in Deskflow's own settings stands. The GUI rewrites
+# its conf on exit, so it is stopped first (the GUI only, never the daemon) and started again.
+function Set-DeskflowTray {
+    $key = 'HKCU:\Software\DeskConsole'
+    if ("$((Get-ItemProperty $key -ErrorAction SilentlyContinue).DeskflowTray)" -eq '1') { return }
+    $conf = Join-Path $DeskflowDir 'Deskflow.conf'
+    if (-not (Test-Path $conf)) { return }   # the machine-wide one is read-only to users: setup's job
+    $have = Get-Ini $conf
+    $diff = [ordered]@{}
+    foreach ($kv in $DeskflowTrayIni.GetEnumerator()) { if ("$($have[$kv.Key])" -ne $kv.Value) { $diff[$kv.Key] = $kv.Value } }
+    if ($diff.Count) {
+        $running = @(Get-Process -Name deskflow -ErrorAction SilentlyContinue)
+        $running | Stop-Process -Force -ErrorAction SilentlyContinue
+        if ($running.Count) { Start-Sleep 2 }
+        Set-Ini $conf $diff
+        $exe = Find-Exe 'C:\Program Files\Deskflow' 'deskflow.exe'
+        if ($running.Count -and $exe) { Start-Process $exe }
+    }
+    if (-not (Test-Path $key)) { New-Item $key | Out-Null }   # never -Force: it would empty an existing key
+    Set-ItemProperty $key -Name DeskflowTray -Value '1'
+}
+
 function Get-DeskflowValues([switch]$NoAppend) {
     # -NoAppend: the 2-minute task and the agent read kvm.json and never write it (C-6), and
     # without one they must not act on Get-Kvm's "this PC is the server" fallback (R6)
@@ -1431,6 +1458,7 @@ function Get-DeskflowValues([switch]$NoAppend) {
         'server/externalConfigFile' = '"' + $serverConf.Replace('\', '\\') + '"'
         'gui/startCoreWithGui'      = 'true'
     }
+    foreach ($kv in $DeskflowTrayIni.GetEnumerator()) { $ini[$kv.Key] = $kv.Value }
     # Deskflow 1.27 takes the computer list from here ([computer_<name>] name=<name>,
     # Settings::knownComputers), NOT from the layout file's "section: screens", which it
     # ignores -- the links then fail with 'unknown computer name'.
@@ -1672,6 +1700,7 @@ if ($Phase -eq 'TrustSync') {
         if ((Test-ShareUp) -and (Test-Path $KvmJson) -and "$((Get-Kvm).provider)" -eq 'Deskflow') {
             try { Sync-DeskflowTrust -Quiet } catch {}
             try { Update-DeskflowServerLayout } catch {}   # server only: a PC that joined later, a layout edit
+            try { Set-DeskflowTray } catch {}
         }
     } catch {}
     # C-10: status file, address self-healing, client reconcile, command queue

@@ -1,61 +1,9 @@
-Desk Console 1.7.1 -- what's new since 1.6.0
+Desk Console 1.8.1 -- what's new since 1.7.1
 
-1.7.1 FIXES THREE THINGS IN 1.7.0
-- The 2-minute task on each PC wrongly decided, on most runs, that the shared folder was unreachable, and quietly skipped its work: the status report, address healing, queued Restart / Sleep / Lock / Sign out, and the Deskflow sync. It now runs every time.
-- A PC's status report could not be overwritten once written, so its card went grey ("Status N min old") after the first one. Reports now refresh every 2 to 4 minutes, as intended.
-- Turning automatic sign-in off now deletes the saved sign-in password instead of leaving an empty one in its place.
+1.8.1: DESKFLOW STAYS IN THE NOTIFICATION AREA
+- Deskflow no longer opens its window at sign-in or sits on the taskbar: it starts hidden, closing its window keeps it running, and its tray icon opens it.
+- Nothing to do: within a few minutes of this update, each PC's background task switches it over once (Deskflow's window restarts; the keyboard and mouse stay connected). Change it afterwards in Deskflow's own settings and it stays changed.
 
-DO THIS ONCE ON EVERY PC
-- Run DeskConsoleSetup-1.7.1.exe and choose "Update and keep this PC's settings" (or Desk Console > Repair / update this PC...). It asks for admin once. Desk Console updates its own files, but only setup starts the status reports, limits RustDesk and the firewall to your home network, completes the Windows Update policy and turns on Wake-on-LAN.
-- Running it over RustDesk is fine -- connect by address, as View + control does. Setup never makes a change that would cut off the session it runs under: what it has to hold back, it says, or does at the next restart.
-- The Deskflow server restarts its window once to pick up the new hotkeys; the keyboard and mouse are back within seconds.
-
-EVERY PC REPORTS ITS OWN STATE
-- Each PC writes a short report to the shared folder (status\<PC>.json) every 2 to 4 minutes: version, keyboard/mouse link, automatic sign-in, sign-in notice, Fast Startup, pending restart, Windows Update policy, RustDesk reach, address and the last action. Its card shows it -- in grey once it is more than 6 minutes old, so a PC that went quiet is never shown as fine.
-- Honest keyboard + mouse lines: the server's own connections decide "connected" or "not connected", and the server's card says "2 of 2 clients". A line nobody can vouch for is grey, no longer green.
-- Addresses heal themselves: a PC with a new address or network card fixes its own machines.csv row, and the Deskflow clients follow the server to its new address (about 4 minutes, no setup run).
-
-ACT ON ANY PC FROM ITS CARD
-- Actions: Restart (with a 60-second warning on that screen), Sleep, Lock, Sign out. The PC picks the request up within 2 minutes; one not run within 10 minutes expires, so a sleeping PC never restarts hours later. The card shows the result.
-- Wake now goes out on the adapter on the target's network, and the card watches for 2 minutes: "awake after 34 s" or "did not answer".
-- The < > buttons on a card move that PC left or right in the desk layout.
-
-ALWAYS WATCHING
-- Closing the window keeps Desk Console in the notification area. It tells you when a PC goes offline or comes back, when a client's keyboard and mouse disconnect, and when the shared folder stops answering. Right-click the icon > Exit to quit.
-- The sign-in shortcut starts it in the notification area; one copy per sign-in; the window opens where you left it.
-
-KEYBOARD AND MOUSE
-- Ctrl+Alt+Shift+1 to 9 jumps straight to a PC, in desk order. Ctrl+Alt+Left / Right still step through them.
-- kvm.json can describe a grid (screens above and below each other) and options: clipboard sharing and its size limit, switch delay, double tap, heartbeat.
-- Restart Deskflow no longer asks for admin.
-
-SAFER BY DEFAULT
-- RustDesk answers your home network only. Until now every PC accepted its password by RustDesk ID from anywhere on the internet. To allow that again, set "rustdeskReach": "anywhere" in site.json (a VPN home is the safer way in).
-- At home, connect by address, not by ID: a connection by ID that goes through RustDesk's relay is refused even from the next room. Desk Console and the Phone / tablet page use addresses.
-- The firewall really is home-network-only: the allow-anyone rules that RustDesk's, Deskflow's and Synergy's own installers add are now limited too, on every setup run.
-- Automatic sign-in: the screen now also locks after a sign-out (Windows signs straight back in), and Fast Startup is turned off while the lock is on (shut down + power on used to skip the lock); turning the lock off puts it back. Setup warns when the account is an administrator, a domain or a Microsoft account, and no longer resets a dedicated account whose password already works.
-- Windows Update: "no restart while someone is signed in" now also sets the automatic-updates option Microsoft requires for it (install daily at 03:00). A card says "update policy incomplete" until setup re-applies it.
-
-SETUP AND THE INSTALLER
-- "Update and keep this PC's settings" on a PC that is already set up; a Ready page that lists what will change; a last page that lists every warning and failure, with the log to open.
-- Newer RustDesk and Deskflow versions in the installer now replace older ones (RustDesk not while you are connected through it).
-- Wake-on-LAN is turned on for each PC's wired network adapter (Wake on LAN in the BIOS / UEFI is still yours to check).
-- Remove-Synergy.cmd uninstalls Synergy 3 once no PC uses it -- for after you cancel the subscription.
-
-SMALLER THINGS
-- Desk Console: Windows Update... and RustDesk password... dialogs (with Remove), a status bar, a yellow bar with Retry while the shared folder is unreachable, F5 to refresh, Alt-key shortcuts, names for screen readers, and this What's new (any time from the status bar).
-- Dev box: several folders, each with VS Code and/or claude --continue in its own terminal tab; a folder listed twice opens once.
-
-FIXED
-- Switching between Deskflow and Synergy could lose the other program's sign-in entries (a registry key was recreated in a way that deleted it), along with Desk Console's own records.
-- Setup-Synergy.cmd -NoAutoRestart, -AutoLogon and the dev box options did nothing: the admin step dropped them.
-- The installer said "installed" when a step had failed, and a hidden step could wait for Enter forever. One failing part of the admin step (Windows Update busy, a firewall error) skipped everything after it.
-- Self-update can no longer relaunch in a loop, retries a copy that stopped half-way, and never downgrades a PC from an older shared folder.
-- Desk Console no longer freezes for half a minute while the shared folder's server is asleep, and one PC without an address no longer blanks every card.
-- Passwords and folders with accents, spaces or quotes reach Windows unchanged.
-- Uninstalling removes both scheduled tasks and Desk Console's own files -- on a PC set up with an older installer, run this one once first.
-
-GOOD TO KNOW
-- A PC reports for the account that ran setup there, while that account is signed in at the PC's own screen. If automatic sign-in uses a different account, run setup once while signed in as it.
-- New wiki page "Hardening the Shared Folder": whoever can write the shared folder can run code on every PC, so use a share-only account rather than the NAS administrator.
-- Each release now has a SHA256SUMS.txt and a GitHub build-provenance attestation, so you can check the installer was built from the repository.
+1.8.0: EACH PC OPENS ON ITS OWN DISPLAY
+- View + control (and Open all) put a PC's RustDesk window on the display that matches its place in your desk layout: with the server in the centre, a PC on its left opens on the left display and one on its right opens on the right. With no display in that direction, or a single display, the window opens normally and you can move it.
+- Optional: tray icon menu > "Hide RustDesk sessions from the taskbar" (off by default). Open RustDesk sessions are then listed in the tray menu: click one to bring it back.

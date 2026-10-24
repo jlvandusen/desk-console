@@ -52,6 +52,12 @@ delay or a double tap before the mouse crosses, the heartbeat
 Deskflow's settings and reloads it. Change them there rather than in Deskflow's window, which the
 next sync overwrites.
 
+## Deskflow's window
+
+Deskflow runs from the notification area: setup starts it hidden at sign-in, so it has no taskbar
+button, and closing its window keeps it running. Click its tray icon to open the window, and use
+the tray icon's menu to quit it.
+
 ## Adding a PC
 
 Run the installer on it as a **Client**. It publishes its fingerprint, trusts the server, and is
