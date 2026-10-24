@@ -731,6 +731,7 @@ function Get-RustDeskWindows([switch]$Sessions) {
 }
 function Test-HideSessions { "$(Get-RegValue $UiKey 'HideSessionsFromTaskbar')" -eq '1' }
 $script:Placers = New-Object Collections.ArrayList
+$script:Claimed = @{}
 function Watch-NewWindow($before, $screen) {   # RustDesk opens its window a moment later: poll up to 20 s
     $t = New-Object Windows.Forms.Timer; $t.Interval = 500
     $st = @{ Before = @($before); Screen = $screen; Tries = 0; Timer = $t }
@@ -738,9 +739,12 @@ function Watch-NewWindow($before, $screen) {   # RustDesk opens its window a mom
     $t.Add_Tick({
         param($sender)
         $x = $sender.Tag; $x.Tries++
-        $new = @(Get-RustDeskWindows -Sessions | Where-Object { $x.Before -notcontains $_ })
+        # Open all starts several watchers at once: each claims only a window no other watcher took.
+        $new = @(Get-RustDeskWindows -Sessions | Where-Object { $x.Before -notcontains $_ -and -not $script:Claimed.ContainsKey($_) })
+        if ($new.Count -gt 1 -and $script:Placers.Count -gt 1) { $new = @($new[0]) }
         if ($new.Count -or $x.Tries -ge 40) {
             $sender.Stop()
+            foreach ($h in $new) { $script:Claimed[$h] = $true }
             foreach ($h in $new) {
                 if ($x.Screen) { $b = $x.Screen.Bounds; [DeskWin]::Place($h, $b.X, $b.Y, $b.Width, $b.Height) }
                 if (Test-HideSessions) { [DeskWin]::HideFromTaskbar($h) }

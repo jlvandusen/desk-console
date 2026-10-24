@@ -16,7 +16,7 @@ Copy the new scripts to the shared folder: installed copies update themselves.
   one on its right opens on the right. With no display in that direction, or a single display, the
   window opens normally and you can move it.
 - **Optional: hide RustDesk sessions from the taskbar.** Tray icon menu > *Hide RustDesk sessions
-  from the taskbar* (off by default). Hidden sessions are listed at the top of the tray menu: click
+  from the taskbar* (off by default).   Open RustDesk sessions are listed in the tray menu: click
   one to bring it back.
 
 ## [1.7.1] - 2026-10-17
