@@ -4,6 +4,21 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.0] - 2026-10-24
+
+Copy the new scripts to the shared folder: installed copies update themselves.
+
+### Added
+
+- **Each PC opens on its own display.** *View + control* (and *Open all*) now put a PC's RustDesk
+  window on the display that matches its place in your desk layout, relative to this PC on the
+  primary display: with the server in the centre, a PC on its left opens on the left display and
+  one on its right opens on the right. With no display in that direction, or a single display, the
+  window opens normally and you can move it.
+- **Optional: hide RustDesk sessions from the taskbar.** Tray icon menu > *Hide RustDesk sessions
+  from the taskbar* (off by default).   Open RustDesk sessions are listed in the tray menu: click
+  one to bring it back.
+
 ## [1.7.1] - 2026-10-17
 
 Copy the new scripts to the shared folder: installed copies update themselves. On a PC that has
