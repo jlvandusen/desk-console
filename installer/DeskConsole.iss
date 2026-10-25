@@ -101,14 +101,16 @@ Source: "redist\vc_redist.x64.exe";           DestDir: "{tmp}"; Flags: deleteaft
 [Icons]
 Name: "{userprograms}\Desk Console"; Filename: "{sys}\conhost.exe"; \
   Parameters: "--headless {sys}\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\Desk-Console.ps1"""; \
-  WorkingDir: "{app}"; IconFilename: "{app}\desk-console.ico"; Comment: "Keyboard + mouse sharing and RustDesk for every PC"
+  WorkingDir: "{app}"; IconFilename: "{app}\desk-console.ico"; Comment: "Keyboard + mouse sharing and RustDesk for every PC"; \
+  AppUserModelID: "JamesVanDusen.DeskConsole"
+; the same ID as Desk-Console.ps1 sets for itself: its own taskbar button and notification name
 Name: "{userdesktop}\Desk Console"; Filename: "{sys}\conhost.exe"; \
   Parameters: "--headless {sys}\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\Desk-Console.ps1"""; \
-  WorkingDir: "{app}"; IconFilename: "{app}\desk-console.ico"; Tasks: desktopicon
+  WorkingDir: "{app}"; IconFilename: "{app}\desk-console.ico"; Tasks: desktopicon; AppUserModelID: "JamesVanDusen.DeskConsole"
 ; at sign-in it starts in the notification area, not as a window (contract C-9: -Tray)
 Name: "{userstartup}\Desk Console"; Filename: "{sys}\conhost.exe"; \
   Parameters: "--headless {sys}\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\Desk-Console.ps1"" -Tray"; \
-  WorkingDir: "{app}"; IconFilename: "{app}\desk-console.ico"; Tasks: autostart
+  WorkingDir: "{app}"; IconFilename: "{app}\desk-console.ico"; Tasks: autostart; AppUserModelID: "JamesVanDusen.DeskConsole"
 
 [Run]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; \

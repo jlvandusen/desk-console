@@ -1,4 +1,8 @@
-Desk Console 1.8.5 -- what's new since 1.7.1
+Desk Console 1.8.6 -- what's new since 1.7.1
+
+1.8.6 FIXES
+- Connect all opens every PC again: one after another, each once the previous one's window is up (it opened only the first).
+- Desk Console has its own icon on the taskbar, and its notifications say "Desk Console" instead of "Windows PowerShell".
 
 1.8.4 + 1.8.5: LESS ON THE REMOTE PCS' TASKBARS, AND UNATTENDED UPDATES
 - Every PC now updates Desk Console by itself, within about 2 minutes of a new version reaching the shared folder -- even where nobody opens Desk Console. No more restarting it on each PC.

@@ -127,6 +127,41 @@ function New-Lnk($path, [string]$extra = '') {
     $l.Description = 'Keyboard + mouse sharing and RustDesk for every PC'
     $l.Save()
 }
+# The shortcuts carry Desk Console's app ID (System.AppUserModel.ID), the one Desk-Console.ps1
+# gives itself (1.8.6): with it the taskbar shows our icon, not PowerShell's, and notifications our
+# name. WScript.Shell cannot set it and a Save() drops it, so it is set after, on every one there.
+function Set-LnkAppIds {
+    try {
+        if (-not ('DeskLnk' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class DeskLnk {
+    [StructLayout(LayoutKind.Sequential, Pack = 4)] struct PROPERTYKEY { public Guid fmtid; public uint pid; }
+    [StructLayout(LayoutKind.Explicit, Size = 24)] struct PROPVARIANT { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore {
+        [PreserveSig] int GetCount(out uint c);
+        [PreserveSig] int GetAt(uint i, out PROPERTYKEY k);
+        [PreserveSig] int GetValue(ref PROPERTYKEY k, out PROPVARIANT v);
+        [PreserveSig] int SetValue(ref PROPERTYKEY k, ref PROPVARIANT v);
+        [PreserveSig] int Commit();
+    }
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    static extern int SHGetPropertyStoreFromParsingName(string path, IntPtr bc, int flags, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IPropertyStore ps);
+    public static void SetAppId(string lnk, string id) {
+        var iid = typeof(IPropertyStore).GUID; IPropertyStore ps;
+        Marshal.ThrowExceptionForHR(SHGetPropertyStoreFromParsingName(lnk, IntPtr.Zero, 2, ref iid, out ps));   // GPS_READWRITE
+        var key = new PROPERTYKEY { fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), pid = 5 };     // System.AppUserModel.ID
+        var v = new PROPVARIANT { vt = 31, p = Marshal.StringToCoTaskMemUni(id) };                           // VT_LPWSTR
+        try { Marshal.ThrowExceptionForHR(ps.SetValue(ref key, ref v)); Marshal.ThrowExceptionForHR(ps.Commit()); }
+        finally { Marshal.FreeCoTaskMem(v.p); Marshal.ReleaseComObject(ps); }
+    }
+}
+'@
+        }
+        foreach ($p in $Lnks.Values) { if (Test-Path $p) { [DeskLnk]::SetAppId($p, 'JamesVanDusen.DeskConsole') } }
+    } catch {}   # the files are in: never fail on this
+}
 
 # Installed by DeskConsoleSetup.exe (Inno Setup)? It owns the shortcuts and the
 # Settings > Apps entry, so a self-update only refreshes the files -- and turns an older
@@ -134,6 +169,7 @@ function New-Lnk($path, [string]$extra = '') {
 if (Test-Path $InnoKey) {
     Set-ItemProperty $InnoKey -Name DisplayVersion -Value $ver
     try { if (Test-Path $Lnks.Startup) { New-Lnk $Lnks.Startup ' -Tray' } } catch {}   # the files are in: never fail on this
+    Set-LnkAppIds
     Say "Updated Desk Console files to $ver (setup-installed copy)." Green
     return
 }
@@ -158,5 +194,6 @@ foreach ($k in $props.Keys) {
     $type = if ($props[$k] -is [int]) { 'DWord' } else { 'String' }
     New-ItemProperty $Key -Name $k -Value $props[$k] -PropertyType $type -Force | Out-Null
 }
+Set-LnkAppIds
 Say "Installed Desk Console $ver -> $Dir" Green
 Say "Start Menu$(if (Test-Path $Lnks.Desktop) {' + Desktop'})$(if (Test-Path $Lnks.Startup) {' + start at sign-in (notification area)'}). Uninstall from Settings > Apps."

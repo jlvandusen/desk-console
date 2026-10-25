@@ -4,6 +4,19 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.6] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves (unattended).
+
+### Fixed
+
+- **Connect all opened only the first PC.** A second RustDesk launch hands its connection to the
+  RustDesk that is already running, and one sent while that RustDesk was still starting was lost.
+  Connect all now opens the PCs one after another, each once the previous one's window is up.
+- **Desk Console showed PowerShell's icon on the taskbar** and its notifications said "Windows
+  PowerShell". It now has its own taskbar identity (Windows app ID `JamesVanDusen.DeskConsole`),
+  and its shortcuts carry the same ID -- set by the update itself on existing shortcuts.
+
 ## [1.8.5] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves (unattended, from

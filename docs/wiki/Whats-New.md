@@ -1,6 +1,10 @@
 # What's New
 
-## Desk Console 1.8.5 (since 1.7.1)
+## Desk Console 1.8.6 (since 1.7.1)
+
+- **1.8.6: Connect all opens every PC** -- one after another (it opened only the first).
+- **1.8.6: Desk Console's own icon on the taskbar**, and "Desk Console" on its notifications,
+  instead of PowerShell's.
 
 - **1.8.5: RustDesk's connection window is hidden on every PC by default.** Untick a card's
   *Actions* > *Hide RustDesk's connection window there* to keep it on that PC

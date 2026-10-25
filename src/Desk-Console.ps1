@@ -895,6 +895,13 @@ if ($Check) {
 
 # ---------------------------------------------------------------- window
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+# Our own taskbar identity, before the first window: as powershell.exe the button was grouped
+# with PowerShell under its icon, and notifications said "Windows PowerShell". The shortcuts carry
+# the same ID (DeskConsole.iss, Install-DeskConsole.ps1), which gives notifications our name and icon.
+try {
+    Add-Type -Name DeskAppId -Namespace Win32 -MemberDefinition '[DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern int SetCurrentProcessExplicitAppUserModelID(string id);'
+    [void][Win32.DeskAppId]::SetCurrentProcessExplicitAppUserModelID('JamesVanDusen.DeskConsole')
+} catch {}
 # An error in a click handler lands here instead of .NET's "Unhandled exception -- Continue /
 # Quit" dialog (U12). It has to be set before the first window exists.
 try { [Windows.Forms.Application]::SetUnhandledExceptionMode([Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}
@@ -1146,15 +1153,37 @@ function Move-Card($name, [int]$dir) {
     Set-Status 'Layout saved -- the server applies it within 2 minutes.' $Ink
 }
 function Connect-All {   # skip what the last probe could not reach, and say so (U11)
-    $n = 0; $skip = @()
+    $script:ConnectQueue.Clear(); $skip = @()
     foreach ($m in Get-OrderedMachines) {
         if ($m.Name -eq $Me) { continue }
         $r = $script:LastProbe[$m.Name]
         if (-not $m.HasIP -or ($r -and -not $r.RustDesk)) { $skip += $m.Name; continue }
-        Connect-Machine $m; $n++
+        $script:ConnectQueue.Enqueue($m)
     }
-    Set-Status "Opened $n in RustDesk$(if ($skip.Count) { "; skipped $($skip -join ', ') (RustDesk not reachable)" })." $Ink
+    $n = $script:ConnectQueue.Count
+    Set-Status "Opening $n in RustDesk, one after another$(if ($skip.Count) { "; skipped $($skip -join ', ') (RustDesk not reachable)" })." $Ink
+    $script:ConnectWait = $null; if ($n) { $connectTimer.Start() }
 }
+# One at a time: a second "rustdesk --connect" hands its connection to the running RustDesk's
+# window (core_main.rs, WM_USER+2, RustDesk 1.5.0), and one sent while that RustDesk is still
+# starting is lost -- Connect all opened only the first PC. The next PC goes once the last one's
+# window is up; as tabs (no new window) 2 s after a RustDesk window exists; at most 15 s each.
+$script:ConnectQueue = New-Object Collections.Queue
+$script:ConnectWait = $null
+$connectTimer = New-Object Windows.Forms.Timer; $connectTimer.Interval = 500
+$connectTimer.Add_Tick({
+    if ($script:ConnectWait) {
+        $w = $script:ConnectWait; $now = @(Get-RustDeskWindows -Sessions); $age = ((Get-Date) - $w.At).TotalSeconds
+        $ready = @($now | Where-Object { $w.Before -notcontains $_ }).Count -or
+                 (-not (Test-SessionWindows) -and $now.Count -and $age -ge 2) -or $age -ge 15
+        if (-not $ready) { return }
+        $script:ConnectWait = $null
+    }
+    if (-not $script:ConnectQueue.Count) { $connectTimer.Stop(); return }
+    $m = $script:ConnectQueue.Dequeue()
+    $script:ConnectWait = @{ Before = @(Get-RustDeskWindows -Sessions); At = Get-Date }
+    try { Connect-Machine $m } catch { Set-Status "$($m.Name): $(Get-ErrorText $_.Exception)" $Red }
+})
 
 # ---------------------------------------------------------------- wake, with a follow-up (F10)
 $wakeTimer = New-Object Windows.Forms.Timer; $wakeTimer.Interval = 5000
