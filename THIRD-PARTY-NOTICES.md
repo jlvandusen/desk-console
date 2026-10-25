@@ -10,7 +10,7 @@ and the setup script in agreement).
 |---|---|---|---|---|
 | **RustDesk** (remote desktop) | 1.5.0 | GNU AGPL-3.0 | https://github.com/rustdesk/rustdesk (tag `1.5.0`) | `624FE792AB1D76B35134DAB84BFF97A6BCD14043FFD090A2C6A2800F77580495` |
 | **Deskflow** (keyboard + mouse sharing) | 1.27.0 | GNU GPL-2.0 (with OpenSSL exception) | https://github.com/deskflow/deskflow (tag `v1.27.0`) | `0CA5668C4731F5477D0B189BDB11196A2CA51281985D9D8C0757BF7F3B782D64` |
-| **Microsoft Visual C++ 2015-2022 Redistributable (x64)** | 14.44.35211.0 | Microsoft Visual C++ Redistributable license terms | https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist | `CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B` |
+| **Microsoft Visual C++ 2015-2022 Redistributable (x64)** | 14.51.36247.0 | Microsoft Visual C++ Redistributable license terms | https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist | `843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C` |
 
 **Source code.** The complete corresponding source code of RustDesk and Deskflow for these exact
 versions is attached to every Desk Console release from 1.7.0 on, as

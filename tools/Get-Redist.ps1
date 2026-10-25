@@ -36,11 +36,11 @@ $items = @(
        Name    = 'deskflow-1.27.0-win-x64.msi'
        Url     = 'https://github.com/deskflow/deskflow/releases/download/v1.27.0/deskflow-1.27.0-win-x64.msi'
        Sha     = '0CA5668C4731F5477D0B189BDB11196A2CA51281985D9D8C0757BF7F3B782D64'; Signer = $null }   # upstream does not sign; hash = GitHub's published digest
-    @{ Product = 'Microsoft Visual C++ runtime'; Version = '14.44.35211.0'   # 2015-2022 x64; Deskflow needs 14.44+
+    @{ Product = 'Microsoft Visual C++ runtime'; Version = '14.51.36247.0'   # 2015-2022 x64; Deskflow needs 14.44+
        Name    = 'vc_redist.x64.exe'
-       Url     = 'https://download.visualstudio.microsoft.com/download/pr/990c720a-46ce-4dc7-87b9-c2eb615d34b9/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe'
+       Url     = 'https://download.visualstudio.microsoft.com/download/pr/ebdab8e5-1d7b-4d9f-a11b-cbb1720c3b12/843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C/VC_redist.x64.exe'
        Latest  = 'https://aka.ms/vc14/vc_redist.x64.exe'   # Microsoft's permalink to the newest build; its target URL carries the SHA-256
-       Sha     = 'CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B'; Signer = 'Microsoft Corporation' }
+       Sha     = '843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C'; Signer = 'Microsoft Corporation' }
 )
 
 if ($ListPins) {

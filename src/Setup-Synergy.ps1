@@ -685,7 +685,7 @@ function Install-Synergy {
 # Deskflow's MSI refuses to install without the Microsoft Visual C++ runtime 14.44+ (exit 1603,
 # "ShowVCRedistError" -- seen on a fresh desktop). Install Microsoft's signed vc_redist.x64.exe
 # when the runtime is missing or older; 1638 = a newer one is already there.
-$VcRedist = @{ Exe = 'vc_redist.x64.exe'; Sha = 'CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B' }   # 14.44.35211.0
+$VcRedist = @{ Exe = 'vc_redist.x64.exe'; Sha = '843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C' }   # 14.51.36247.0
 function Install-VCRedist {
     foreach ($key in 'HKLM:\SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\14.0\VC\Runtimes\x64') {
         $p = Get-ItemProperty $key -ErrorAction SilentlyContinue

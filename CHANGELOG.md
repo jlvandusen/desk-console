@@ -4,6 +4,17 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.8] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves (unattended).
+
+### Changed
+
+- **Microsoft Visual C++ runtime 14.51.36247.0** in the installer (was 14.44.35211.0; signed by
+  Microsoft, SHA-256 `843068991DAAA1F73AD9F6239BCE4D0F6A07A51F18C37EA2A867E9BECA71295C`). Setup
+  still installs it only where the runtime is missing or older than 14.44, which Deskflow needs,
+  so PCs that have it are unchanged.
+
 ## [1.8.7] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves (unattended).

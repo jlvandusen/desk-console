@@ -1,4 +1,4 @@
-Desk Console 1.8.7 -- what's new since 1.7.1
+Desk Console 1.8.8 -- what's new since 1.7.1
 
 1.8.6 + 1.8.7 FIXES
 - Each PC opens on its own display every time: after a session was closed, the next PC could open on the main display (RustDesk reuses the closed window). Displays are matched left to right as Windows arranges them, at their real size also when scaled (150% and so on).

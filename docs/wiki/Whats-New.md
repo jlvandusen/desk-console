@@ -1,6 +1,9 @@
 # What's New
 
-## Desk Console 1.8.7 (since 1.7.1)
+## Desk Console 1.8.8 (since 1.7.1)
+
+- **1.8.8:** the installer bundles the Microsoft Visual C++ runtime 14.51.36247.0 (was 14.44); PCs
+  that already have 14.44 or newer are not touched.
 
 - **1.8.7: each PC opens on its own display every time** -- also after another session was
   closed, and on a scaled (150% ...) display. Displays are matched left to right as Windows
