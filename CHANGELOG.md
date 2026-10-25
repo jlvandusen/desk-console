@@ -4,6 +4,32 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.4] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves.
+
+### Fixed
+
+- **Deskflow still on the taskbar on some PCs.** 1.8.1 changed only the signed-in user's own
+  Deskflow settings file, and a PC whose Deskflow reads the machine-wide one was skipped. The
+  2-minute task now starts the user's own file from the machine-wide one, then applies the
+  notification-area settings (once; Deskflow's window restarts, the keyboard and mouse stay
+  connected).
+
+### Added
+
+- **Every PC updates itself unattended.** The 2-minute task compares the shared folder's version
+  with its own on every run and updates Desk Console when the share is newer -- no one needs to
+  open Desk Console there. A PC is on a new version within about 2 minutes of it reaching the
+  shared folder (`update.log` in the install folder records it).
+- **Optional: hide RustDesk's connection window on a PC.** A card's *Actions* > *Hide RustDesk's
+  connection window there* (kvm.json `hideRustDeskWindow`, off by default). That PC's 2-minute
+  task starts a small watcher that hides RustDesk's "someone is connected" window -- the taskbar
+  button that shows while you control it; RustDesk's tray icon stays. Someone at that PC then
+  cannot see that it is controlled.
+- Status reports say whether Deskflow starts in the notification area (`deskflowHidden`) and
+  whether the RustDesk window watcher runs (`rustdeskWindowWatcher`).
+
 ## [1.8.3] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves.

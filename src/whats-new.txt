@@ -1,4 +1,9 @@
-Desk Console 1.8.3 -- what's new since 1.7.1
+Desk Console 1.8.4 -- what's new since 1.7.1
+
+1.8.4: LESS ON THE REMOTE PCS' TASKBARS, AND UNATTENDED UPDATES
+- Every PC now updates Desk Console by itself, within about 2 minutes of a new version reaching the shared folder -- even where nobody opens Desk Console. No more restarting it on each PC.
+- Deskflow now moves to the notification area on every PC, including those whose Deskflow used the machine-wide settings (1.8.1 skipped them). Nothing to do.
+- Optional, per PC: a card's Actions > "Hide RustDesk's connection window there". That PC then hides RustDesk's "someone is connected" window -- the taskbar button that shows while you control it -- within 2 minutes; RustDesk's tray icon stays. Someone sitting at that PC can then no longer see that it is being controlled.
 
 1.8.2 + 1.8.3: EVERY PC ON ITS OWN DISPLAY, OR TABS -- YOUR CHOICE
 - A second PC opened as a tab of the first one's window instead of on its own display. Each PC now opens in its own window, on the display that matches its place in the desk layout.

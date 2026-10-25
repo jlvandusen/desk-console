@@ -434,6 +434,8 @@ function Get-DeskAgentStatus($ctx) {
         rebootPending = Test-DeskAgentRebootPending
         updates       = $updates
         rustdeskReach = $reach
+        deskflowHidden = $(if ($ctx.Provider -eq 'Deskflow') { Get-DeskAgentDeskflowHidden } else { $null })
+        rustdeskWindowWatcher = Get-DeskAgentCmWatcher
         lastBoot      = $boot
         ip            = $ip
         lastCommand   = $ctx.LastCommand
@@ -489,6 +491,26 @@ function Test-DeskAgentTask([string]$name) {
         $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
         if ($e.HResult -eq -2147024894) { $false } else { $null }   # 0x80070002 = no such task
     }
+}
+
+# Deskflow starts in the notification area (gui/autoHide) -- read from the file it loads: this
+# user's own if there is one, else the machine-wide one (Settings.cpp, v1.27.0). $null: neither.
+function Get-DeskAgentDeskflowHidden {
+    foreach ($f in (Join-Path $env:APPDATA 'Deskflow\Deskflow.conf'), 'C:\ProgramData\Deskflow\Deskflow.conf') {
+        if (-not (Test-Path -LiteralPath $f)) { continue }
+        $sec = ''
+        foreach ($l in [IO.File]::ReadAllLines($f)) {
+            if ($l -match '^\s*\[(.+)\]\s*$') { $sec = $Matches[1] }
+            elseif ($sec -eq 'gui' -and $l -match '^\s*autoHide\s*=\s*(\S+)') { return $Matches[1] -eq 'true' }
+        }
+        return $false
+    }
+    $null
+}
+# The RustDesk window watcher task (Setup-Synergy.ps1 Sync-CmWatcher): 'running', 'stopped' or 'off'.
+function Get-DeskAgentCmWatcher {
+    try { $t = Get-ScheduledTask -TaskName 'DeskConsole RustDesk window watcher' -ErrorAction Stop } catch { return 'off' }
+    if ("$($t.State)" -eq 'Running') { 'running' } else { 'stopped' }
 }
 
 function Get-DeskAgentVersion {   # this PC's installed Desk Console, else the copy this file came from

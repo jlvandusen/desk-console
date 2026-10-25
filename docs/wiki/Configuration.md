@@ -88,6 +88,16 @@ it names your network (it is in `.gitignore`).
   sync puts `kvm.json`'s values back. A name not in the table, or a value of the wrong kind, is
   ignored with a warning in the setup log.
 
+- `hideRustDeskWindow` -- optional list of PC names, for example `[ "BUILD-01", "BUILD-02" ]`
+  (Desk Console: a card's *Actions* > *Hide RustDesk's connection window there*). On those PCs
+  RustDesk's connection manager -- the "someone is connected" window that sits on the taskbar
+  while you control the PC -- is hidden; RustDesk's tray icon stays. RustDesk itself offers this
+  only in its paid version, so the PC's 2-minute task starts a small watcher of Desk Console's
+  (scheduled task *DeskConsole RustDesk window watcher*, as the signed-in user) and removes it again
+  when the PC leaves the list. Someone sitting at that PC then cannot see that it is controlled,
+  and cannot accept a connection by clicking -- connections by password, as Desk Console makes
+  them, are not affected.
+
 Saved by setup and Desk Console as plain JSON; nested `grid` and `options` survive.
 
 ## machines.csv

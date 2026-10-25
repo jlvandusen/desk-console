@@ -134,6 +134,11 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DeskConsole Deskflow 
   Flags: runhidden; RunOnceId: "DeleteTrustSyncTask"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DeskConsole dev box resume"" /F"; \
   Flags: runhidden; RunOnceId: "DeleteDevBoxTask"
+; the RustDesk window watcher (kvm.json hideRustDeskWindow) runs until sign-out: end it, then delete it
+Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN ""DeskConsole RustDesk window watcher"""; \
+  Flags: runhidden; RunOnceId: "EndCmWatchTask"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DeskConsole RustDesk window watcher"" /F"; \
+  Flags: runhidden; RunOnceId: "DeleteCmWatchTask"
 
 [UninstallDelete]
 ; what Desk Console itself writes into its folder, so the folder goes too: the share caches and

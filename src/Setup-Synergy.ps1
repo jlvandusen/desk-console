@@ -50,7 +50,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('All','User','Admin','Finish','AutoLogon','TrustSync','Updates','RemoveSynergy')] [string]$Phase = 'All',
+    [ValidateSet('All','User','Admin','Finish','AutoLogon','TrustSync','CmWatch','Updates','RemoveSynergy')] [string]$Phase = 'All',
     [ValidateSet('','Enable','Disable')] [string]$NoAutoRestart = '',   # Windows Update: no restart while someone is signed in
     [string]$DevBoxFolder = '',     # dev box: reopen VS Code on this folder at sign-in (Finish step, as the user)
     [switch]$DevBoxClaude,          # ...and open a terminal running `claude --continue` there
@@ -1411,7 +1411,14 @@ function Set-DeskflowTray {
     $key = 'HKCU:\Software\DeskConsole'
     if ("$((Get-ItemProperty $key -ErrorAction SilentlyContinue).DeskflowTray)" -eq '1') { return }
     $conf = Join-Path $DeskflowDir 'Deskflow.conf'
-    if (-not (Test-Path $conf)) { return }   # the machine-wide one is read-only to users: setup's job
+    if (-not (Test-Path $conf)) {
+        # Deskflow is reading the machine-wide file, read-only to users: start this user's own from
+        # it (Deskflow prefers that one from now on, as after a finish step) and change that
+        $sys = Join-Path $DeskflowSysDir 'Deskflow.conf'
+        if (-not (Test-Path $sys)) { return }
+        New-Item -ItemType Directory -Force $DeskflowDir | Out-Null
+        Copy-Item $sys $conf
+    }
     $have = Get-Ini $conf
     $diff = [ordered]@{}
     foreach ($kv in $DeskflowTrayIni.GetEnumerator()) { if ("$($have[$kv.Key])" -ne $kv.Value) { $diff[$kv.Key] = $kv.Value } }
@@ -1657,6 +1664,82 @@ function Register-TrustSyncTask {
     Register-ScheduledTask -TaskName $TrustTask -Action $act -Trigger $t1, $t2 -Settings $set -Force | Out-Null
 }
 
+# kvm.json "hideRustDeskWindow": the PCs that hide RustDesk's connection manager (the "someone is
+# connected" window, rustdesk.exe --cm) while they are controlled. RustDesk 1.5.0 hides it only in
+# Pro or a custom client (ipc.rs get_config "hide_cm"), so a watcher of ours does: a per-user task
+# at sign-in, no time limit, that the 2-minute task registers and starts on those PCs only.
+$CmTask = 'DeskConsole RustDesk window watcher'   # the name the uninstaller knows
+function Test-HideCm { @((Get-Kvm).hideRustDeskWindow | Where-Object { $_ } | ForEach-Object { "$_" }) -contains $Me }
+function Sync-CmWatcher {   # from the 2-minute task, as the signed-in user
+    $t = Get-ScheduledTask -TaskName $CmTask -ErrorAction SilentlyContinue
+    if (-not (Test-HideCm)) {
+        if ($t) { Stop-ScheduledTask -TaskName $CmTask -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $CmTask -Confirm:$false }
+        return
+    }
+    if (-not $t) {
+        $script = Join-Path $env:LOCALAPPDATA 'Programs\DeskConsole\Setup-Synergy.ps1'
+        if (-not (Test-Path $script)) { $script = $PSCommandPath }
+        $act = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\conhost.exe" `
+            -Argument "--headless $env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$script`" -Phase CmWatch"
+        $trg = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+        $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
+        Register-ScheduledTask -TaskName $CmTask -Action $act -Trigger $trg -Settings $set -Force | Out-Null
+        $t = Get-ScheduledTask -TaskName $CmTask
+    }
+    if ("$($t.State)" -ne 'Running') { Start-ScheduledTask -TaskName $CmTask }
+}
+# The watcher: hide every window of this session's rustdesk --cm processes, about once a second
+# (RustDesk shows the window again on a new connection or a chat message). Stops when this PC
+# leaves the list; the 2-minute task also stops and removes the task then.
+function Invoke-CmWatch {
+    Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices;
+public static class DeskCmWin {
+    delegate bool EnumProc(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc p, IntPtr l);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    public static void Hide(int[] pids) {
+        EnumWindows((h, l) => { uint pid; GetWindowThreadProcessId(h, out pid);
+            if (IsWindowVisible(h) && Array.IndexOf(pids, (int)pid) >= 0) ShowWindow(h, 0); return true; }, IntPtr.Zero);
+    }
+}
+'@
+    $sid = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    $isCm = @{}   # pid -> started with --cm (the command line is read once per process)
+    for ($n = 1; ; $n++) {
+        $ids = @(Get-Process -Name rustdesk -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $sid } | ForEach-Object { $_.Id })
+        foreach ($id in $ids) {
+            if (-not $isCm.ContainsKey($id)) { $isCm[$id] = "$((Get-CimInstance Win32_Process -Filter "ProcessId=$id" -ErrorAction SilentlyContinue).CommandLine)" -match '--cm' }
+        }
+        foreach ($id in @($isCm.Keys)) { if ($ids -notcontains $id) { $isCm.Remove($id) } }
+        $cm = @($isCm.Keys | Where-Object { $isCm[$_] })
+        if ($cm.Count) { [DeskCmWin]::Hide([int[]]$cm) }
+        if ($n % 120 -eq 0) { try { if ((Test-Path $KvmJson) -and -not (Test-HideCm)) { return } } catch {} }   # about every 2 minutes
+        Start-Sleep -Milliseconds 800
+    }
+}
+
+# Unattended self-update, from the 2-minute task: Desk Console updates itself only while it runs,
+# so a PC where nobody opens it -- a remote with automatic sign-in -- stayed on its old version.
+# The share's Install-DeskConsole.ps1 -Quiet (per user, no admin, version.txt copied last, never a
+# downgrade). $true: updated -- the caller ends this run, so the next one runs the new code.
+function Update-DeskConsoleInstall {
+    $dir = Join-Path $env:LOCALAPPDATA 'Programs\DeskConsole'
+    $mine = Join-Path $dir 'version.txt'; $theirs = Join-Path $Root 'version.txt'; $inst = Join-Path $Root 'Install-DeskConsole.ps1'
+    if (-not ((Test-Path $mine) -and (Test-Path $theirs) -and (Test-Path $inst))) { return $false }
+    $have = [version]"$(Get-Content $mine -TotalCount 1)".Trim(); $new = [version]"$(Get-Content $theirs -TotalCount 1)".Trim()
+    if ($new -le $have) { return $false }
+    $log = Join-Path $dir 'update.log'
+    try { & $inst -Quiet *> $null } catch { Add-Content $log "$(Get-Date -f 'yyyy-MM-dd HH:mm:ss')  update to $new from $Root (2-minute task) failed: $($_.Exception.Message)" -Encoding ascii; return $false }
+    $now = [version]"$(Get-Content $mine -TotalCount 1)".Trim()
+    Add-Content $log "$(Get-Date -f 'yyyy-MM-dd HH:mm:ss')  updated $have -> $now from $Root (2-minute task)" -Encoding ascii
+    # the watcher runs until sign-out on the old code: stop it, and this task's next run starts it again
+    if ($now -gt $have) { Stop-ScheduledTask -TaskName $CmTask -ErrorAction SilentlyContinue }
+    $now -gt $have
+}
+
 function Set-DeskflowUser {     # finish step, as the signed-in user
     if ((Get-Kvm).provider -ne 'Deskflow') { return }
     $exe = Find-Exe 'C:\Program Files\Deskflow' 'deskflow.exe'
@@ -1697,16 +1780,23 @@ function Invoke-FinishPhase {
 if ($Phase -eq 'TrustSync') {
     try {
         # R6: no kvm.json, nothing to sync (and no share, no 40 s wait for it)
-        if ((Test-ShareUp) -and (Test-Path $KvmJson) -and "$((Get-Kvm).provider)" -eq 'Deskflow') {
-            try { Sync-DeskflowTrust -Quiet } catch {}
-            try { Update-DeskflowServerLayout } catch {}   # server only: a PC that joined later, a layout edit
-            try { Set-DeskflowTray } catch {}
+        $up = Test-ShareUp
+        # first, while the run has most of its minute left; after an update the next run goes on
+        if ($up) { try { if (Update-DeskConsoleInstall) { exit 0 } } catch {} }
+        if ($up -and (Test-Path $KvmJson)) {
+            if ("$((Get-Kvm).provider)" -eq 'Deskflow') {
+                try { Sync-DeskflowTrust -Quiet } catch {}
+                try { Update-DeskflowServerLayout } catch {}   # server only: a PC that joined later, a layout edit
+                try { Set-DeskflowTray } catch {}
+            }
+            try { Sync-CmWatcher } catch {}   # any provider: RustDesk is on every PC
         }
     } catch {}
     # C-10: status file, address self-healing, client reconcile, command queue
     try { $ag = Join-Path $PSScriptRoot 'Agent.ps1'; if (Test-Path $ag) { . $ag; Invoke-DeskAgent } } catch {}
     exit 0
 }
+if ($Phase -eq 'CmWatch') { try { Invoke-CmWatch } catch {}; exit 0 }
 
 # A click in a console window starts QuickEdit selection ("Select ..." in the title), which
 # freezes every write -- the script hangs until Esc (it happened in the installer's admin

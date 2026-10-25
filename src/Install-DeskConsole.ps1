@@ -7,7 +7,7 @@
   installer (the uninstaller). Start Menu + Desktop shortcuts, optional
   sign-in start (-AutoStart: in the notification area), and an entry in Settings > Apps.
   Shortcuts launch through `conhost --headless` so no console window flashes.
-  The installed app updates itself: on launch it compares version.txt on the
+  The installed app updates itself: on launch (and its 2-minute task, unattended) it compares version.txt on the
   share with its own version and runs this script from the share (-Quiet) when it is newer.
   It never puts an older version over a newer one unless -Force: re-running setup from an
   older shared folder used to downgrade the PC without a word.
@@ -46,8 +46,8 @@ $InnoKey  = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\DeskConso
 $Files    = 'Desk-Console.ps1', 'Setup-Synergy.ps1', 'Agent.ps1', 'Install-DeskConsole.ps1', 'Start-DevBox.ps1',
             'Set-NoAutoRestart.cmd', 'Remove-Synergy.cmd', 'desk-console.ico',
             'mobile\rustdesk-android.png', 'mobile\rustdesk-ios.png', 'whats-new.txt', 'version.txt'
-# per-user tasks setup creates; both start PowerShell on a script in $Dir
-$Tasks    = 'DeskConsole Deskflow trust sync', 'DeskConsole dev box resume'
+# per-user tasks setup creates; each starts PowerShell on a script in $Dir (the watcher runs on: stop it first)
+$Tasks    = 'DeskConsole Deskflow trust sync', 'DeskConsole dev box resume', 'DeskConsole RustDesk window watcher'
 
 function Say($m, $c = 'Cyan') { if (-not $Quiet) { Write-Host "[Desk Console] $m" -ForegroundColor $c } }
 
@@ -72,7 +72,7 @@ if ($Uninstall) {
     # 2 minutes, the dev box task at every sign-in. The "lock after auto sign-in" task stays: it
     # needs no file here, and removing it would leave a PC that still signs in by itself unlocked.
     foreach ($t in $Tasks) {
-        try { Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue } catch {}
+        try { Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue } catch {}
     }
     $Lnks.Values | ForEach-Object { Remove-Item $_ -ErrorAction SilentlyContinue }
     Remove-Item $Key -Recurse -ErrorAction SilentlyContinue

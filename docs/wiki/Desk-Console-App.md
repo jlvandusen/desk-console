@@ -89,6 +89,12 @@ notes it in `update.log` in the install folder and reopens once (with `-Updated`
 never updates again in the same launch). `Install-DeskConsole.ps1` does not replace a newer
 installed version with an older one from the share.
 
+Every PC also updates **unattended** (since 1.8.4): its 2-minute task makes the same comparison
+on every run and runs the same `Install-DeskConsole.ps1 -Quiet` -- so a PC where nobody opens Desk
+Console, such as a remote with automatic sign-in, is on a new version within about 2 minutes of
+it reaching the shared folder (4 at most: that run ends after updating and the next one runs the
+new code). A Desk Console window open there switches to the new version at its next hourly check.
+
 Self-update needs the scripts in the shared folder, not only the installer: copy `src\*` (or the
 release's `DeskConsole-<version>-scripts.zip`) there ([Building](Building#deploying-to-a-shared-folder)).
 

@@ -1,6 +1,15 @@
 # What's New
 
-## Desk Console 1.8.3 (since 1.7.1)
+## Desk Console 1.8.4 (since 1.7.1)
+
+- **1.8.4: every PC updates itself unattended**, within about 2 minutes of a new version reaching
+  the shared folder, whether or not Desk Console is open there
+  ([Self-update](Desk-Console-App#self-update)).
+- **1.8.4: Deskflow in the notification area on every PC.** PCs whose Deskflow read the
+  machine-wide settings were skipped by 1.8.1; they now switch over too.
+- **1.8.4, optional: hide RustDesk's connection window on a PC.** A card's *Actions* > *Hide
+  RustDesk's connection window there* hides the "someone is connected" window on that PC
+  ([kvm.json `hideRustDeskWindow`](Configuration#kvmjson)).
 
 - **1.8.2 + 1.8.3: every PC on its own display, or tabs.** A second PC used to open as a tab of
   the first one's window. Each PC now gets its own window on its display; untick *Each PC in its

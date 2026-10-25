@@ -1023,7 +1023,27 @@ foreach ($a in @(@('restart', 'Restart...'), @('sleep', 'Sleep...'), @('lock', '
     $it = New-Object Windows.Forms.ToolStripMenuItem $a[1]; $it.Tag = $a[0]
     $it.Add_Click({ Request-Command $actMenu.Tag $this.Tag }); [void]$actMenu.Items.Add($it)
 }
-function Show-ActionMenu($btn) { $actMenu.Tag = $btn.Tag; $actMenu.Show($btn, (New-Object Drawing.Point 0, $btn.Height)) }
+[void]$actMenu.Items.Add('-')
+# kvm.json "hideRustDeskWindow" (Setup-Synergy.ps1 Sync-CmWatcher): that PC's 2-minute task starts
+# or stops a watcher that hides RustDesk's "someone is connected" window there
+$cmItem = New-Object Windows.Forms.ToolStripMenuItem "Hide RustDesk's connection window there"
+$cmItem.Add_Click({ Set-HideCm $actMenu.Tag (-not $cmItem.Checked) }); [void]$actMenu.Items.Add($cmItem)
+function Get-HideCmList { @($script:Kvm.hideRustDeskWindow | Where-Object { $_ } | ForEach-Object { "$_" }) }
+function Show-ActionMenu($btn) {
+    $actMenu.Tag = $btn.Tag; $cmItem.Checked = (Get-HideCmList) -contains $btn.Tag
+    $actMenu.Show($btn, (New-Object Drawing.Point 0, $btn.Height))
+}
+function Set-HideCm($name, [bool]$on) {
+    if ($script:FromCache) { throw 'The shared folder is not reachable, so kvm.json cannot be changed now.' }
+    $k = [IO.File]::ReadAllText($KvmPath) | ConvertFrom-Json
+    $list = @($k.hideRustDeskWindow | Where-Object { $_ -and "$_" -ne $name } | ForEach-Object { "$_" })
+    if ($on) { $list += $name }
+    if ($list.Count) { $k | Add-Member -NotePropertyName hideRustDeskWindow -NotePropertyValue ([object[]]$list) -Force }
+    elseif ($k.PSObject.Properties['hideRustDeskWindow']) { $k.PSObject.Properties.Remove('hideRustDeskWindow') }
+    [IO.File]::WriteAllText($KvmPath, ($k | ConvertTo-Json -Depth 6), [Text.Encoding]::ASCII)   # one write, as Move-InRow (R6)
+    $script:Kvm = $k
+    Set-Status "$($name) $(if ($on) { 'hides' } else { 'shows' }) RustDesk's connection window from its next 2-minute run." $Ink
+}
 function Request-Command($name, $action) {
     $st = $script:Reports[$name]; $age = Get-StatusAge $st
     $verb = @{ restart = 'Restart'; sleep = 'Put to sleep'; lock = 'Lock'; signout = 'Sign out of' }[$action]
