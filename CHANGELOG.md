@@ -4,6 +4,16 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.3] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves.
+
+### Added
+
+- **Separate windows or tabs, in the window too.** The toolbar has an *Each PC in its own window*
+  checkbox, the same choice as the tray icon menu item (either one updates the other). The status
+  bar says when the change takes effect.
+
 ## [1.8.2] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves.

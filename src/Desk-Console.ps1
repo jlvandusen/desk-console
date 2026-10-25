@@ -714,6 +714,15 @@ function Connect-Machine($m) {
 $RustDeskLocal = Join-Path $env:APPDATA 'RustDesk\config\RustDesk_local.toml'
 $TabsKey = 'enable-open-new-connections-in-tabs'
 function Test-SessionWindows { "$(Get-RegValue $UiKey 'SessionWindows')" -ne '0' }   # default: a window per PC
+function Set-SessionWindows([bool]$on) {   # the toolbar checkbox and the tray menu item
+    if (-not (Test-Path $UiKey)) { New-Item $UiKey | Out-Null }
+    Set-ItemProperty $UiKey -Name SessionWindows -Value $(if ($on) { '1' } else { '0' })
+    $winBox.Checked = $on; $winItem.Checked = $on
+    $msg = $(if ($on) { 'Each PC opens in its own RustDesk window' } else { 'Every PC opens as a tab of one RustDesk window' })
+    if (@(Get-RustDeskWindows -Sessions).Count) { $msg += ' -- from the next View + control after the open sessions are closed.' }
+    else { $msg += ', from the next View + control.' }
+    Set-Status $msg $Ink
+}
 function Sync-RustDeskTabs {
     $want = $(if (Test-SessionWindows) { 'N' } else { 'Y' })
     $line = "$TabsKey = '$want'"
@@ -951,6 +960,12 @@ $bar.Controls.Add((New-Button '&Connect all' $null { Connect-All }))
 $bar.Controls.Add((New-Button 'RustDesk &password...' $null { Show-RustDeskPasswordDialog }))
 $bar.Controls.Add((New-Button 'P&hone / tablet...' $null { Show-MobileDialog }))
 $bar.Controls.Add((New-Button '&Open share' $null { Start-Process explorer.exe $Root }))
+# the same choice as the tray menu's "Open each PC in its own window"; either one updates the other
+$winBox = New-Object Windows.Forms.CheckBox; $winBox.Text = 'Each PC in its own &window'; $winBox.AutoSize = $true; $winBox.Margin = '10,7,3,3'
+$winBox.Checked = Test-SessionWindows
+$tips.SetToolTip($winBox, "On: View + control opens each PC in a RustDesk window of its own, on the display that matches its place in the desk layout.`nOff: every PC is a tab of one RustDesk window.`nApplies from the next View + control once no RustDesk session is open.")
+$winBox.Add_Click({ Set-SessionWindows $winBox.Checked })
+$bar.Controls.Add($winBox)
 
 # shared folder offline (U7): say so where it is seen, with the two things to do about it
 $banner = New-Object Windows.Forms.Panel; $banner.Dock = 'Top'; $banner.Height = 36; $banner.Padding = '10,2,6,2'
@@ -1640,10 +1655,7 @@ $hideItem.Add_Click({
 # Off: RustDesk's own way, every PC a tab of one window (which then stays on one display).
 $winItem = New-Object Windows.Forms.ToolStripMenuItem 'Open each PC in its own window (on its display)'; $winItem.CheckOnClick = $true
 $winItem.Checked = Test-SessionWindows
-$winItem.Add_Click({
-    if (-not (Test-Path $UiKey)) { New-Item $UiKey | Out-Null }
-    Set-ItemProperty $UiKey -Name SessionWindows -Value $(if ($winItem.Checked) { '1' } else { '0' })
-})
+$winItem.Add_Click({ Set-SessionWindows $winItem.Checked })
 [void]$trayMenu.Items.Add($winItem)
 [void]$trayMenu.Items.Add('-')
 [void]$trayMenu.Items.Add('Exit', $null, { Exit-App })

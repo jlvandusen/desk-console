@@ -69,7 +69,8 @@ Console in the notification area when I sign in* starts it there with `-Tray`.
 
 The right-click menu also holds two RustDesk choices, both kept per user:
 
-- **Open each PC in its own window (on its display)** -- on by default. *View + control* opens
+- **Open each PC in its own window (on its display)** -- on by default; also the *Each PC in its
+  own window* checkbox in the window's toolbar. *View + control* opens
   each PC in a window of its own, on the display that matches its place in the desk layout (with
   this PC on the primary display). Off: RustDesk's own way, every PC a tab of one window. The
   choice is RustDesk's *Open connection in new tab* setting, which Desk Console sets on the next
