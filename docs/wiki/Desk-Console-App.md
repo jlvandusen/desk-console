@@ -72,7 +72,10 @@ The right-click menu also holds two RustDesk choices, both kept per user:
 - **Open each PC in its own window (on its display)** -- on by default; also the *Each PC in its
   own window* checkbox in the window's toolbar. *View + control* opens
   each PC in a window of its own, on the display that matches its place in the desk layout (with
-  this PC on the primary display). Off: RustDesk's own way, every PC a tab of one window. The
+  this PC on the primary display): the displays are counted left to right as Windows arranges them
+  (*Settings > System > Display*), so a PC one place left of this one opens maximized on the
+  display left of the primary. With no display there it opens normally. For 10 s after it opens,
+  a window RustDesk moves elsewhere is put back. Off: RustDesk's own way, every PC a tab of one window. The
   choice is RustDesk's *Open connection in new tab* setting, which Desk Console sets on the next
   *View + control*; while sessions are open it waits until they are closed (a RustDesk window
   without sessions is closed and reopened).

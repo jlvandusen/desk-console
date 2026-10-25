@@ -1,6 +1,10 @@
 # What's New
 
-## Desk Console 1.8.6 (since 1.7.1)
+## Desk Console 1.8.7 (since 1.7.1)
+
+- **1.8.7: each PC opens on its own display every time** -- also after another session was
+  closed, and on a scaled (150% ...) display. Displays are matched left to right as Windows
+  arranges them (*Settings > System > Display*), around the primary one.
 
 - **1.8.6: Connect all opens every PC** -- one after another (it opened only the first).
 - **1.8.6: Desk Console's own icon on the taskbar**, and "Desk Console" on its notifications,

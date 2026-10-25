@@ -169,10 +169,38 @@ public static class DeskWin {
         ShowWindow(w, 5);
     }
     public static void Activate(long h) { ShowWindow((IntPtr)h, 9); SetForegroundWindow((IntPtr)h); }
-    // Restore, then fill the rectangle (maximize would pick the monitor it was last on).
-    public static void Place(long h, int x, int y, int w, int ht) {
-        ShowWindow((IntPtr)h, 9); SetWindowPos((IntPtr)h, IntPtr.Zero, x, y, w, ht, 0x0044);
-        ShowWindow((IntPtr)h, 3);
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+    [StructLayout(LayoutKind.Sequential)] struct MONITORINFO { public int cb; public RECT rc; public RECT work; public uint flags; }
+    delegate bool MonProc(IntPtr m, IntPtr dc, ref RECT r, IntPtr d);
+    [DllImport("user32.dll")] static extern bool EnumDisplayMonitors(IntPtr dc, IntPtr clip, MonProc p, IntPtr d);
+    [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr m, ref MONITORINFO mi);
+    [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
+    [DllImport("user32.dll")] static extern bool IsZoomed(IntPtr h);
+    [DllImport("user32.dll")] static extern IntPtr SetThreadDpiAwarenessContext(IntPtr c);
+    // Maximize the window on the display <offset> places from the primary, the displays counted left
+    // to right (then top to bottom) as Windows arranges them. -1: no such display; 0: it is there
+    // already; 1: moved. In real pixels: this process is not DPI aware, and Windows reported a 150%
+    // display at 2/3 of its size, so the thread is per-monitor aware (v2) while it measures and moves.
+    public static int PlaceOnDisplay(long h, int offset) {
+        var w = (IntPtr)h; var old = IntPtr.Zero;
+        try { old = SetThreadDpiAwarenessContext((IntPtr)(-4)); } catch (EntryPointNotFoundException) {}   // before Windows 10 1607
+        try {
+            var mons = new System.Collections.Generic.List<IntPtr>(); var infos = new System.Collections.Generic.List<MONITORINFO>();
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr m, IntPtr dc, ref RECT r, IntPtr d) => {
+                var mi = new MONITORINFO(); mi.cb = Marshal.SizeOf(mi);
+                if (GetMonitorInfo(m, ref mi)) {
+                    int i = 0; while (i < infos.Count && (infos[i].rc.L < mi.rc.L || (infos[i].rc.L == mi.rc.L && infos[i].rc.T < mi.rc.T))) i++;
+                    mons.Insert(i, m); infos.Insert(i, mi);
+                }
+                return true; }, IntPtr.Zero);
+            int prim = infos.FindIndex(x => (x.flags & 1) == 1), t = prim + offset;
+            if (infos.Count < 2 || prim < 0 || t < 0 || t >= infos.Count) return -1;
+            if (MonitorFromWindow(w, 2) == mons[t] && IsZoomed(w)) return 0;   // MONITOR_DEFAULTTONEAREST
+            // restore, fill the work area, then maximize (maximize alone stays on the window's display)
+            var a = infos[t].work;
+            ShowWindow(w, 9); SetWindowPos(w, IntPtr.Zero, a.L, a.T, a.R - a.L, a.B - a.T, 0x0044); ShowWindow(w, 3);
+            return 1;
+        } finally { if (old != IntPtr.Zero) SetThreadDpiAwarenessContext(old); }
     }
 }
 public static class DeskCred {
@@ -702,7 +730,7 @@ function Connect-Machine($m) {
     try { Sync-RustDeskTabs } catch {}
     $before = Get-RustDeskWindows -Sessions
     Start-Process $RustDeskExe -ArgumentList $a
-    Watch-NewWindow $before (Get-ScreenFor $m)
+    Watch-NewWindow $before (Get-DisplayOffset $m)
 }
 
 # RustDesk opens a connection as a tab of its open remote window -- which cannot go to another
@@ -748,19 +776,15 @@ function Sync-RustDeskTabs {
 }
 
 # Each PC opens on the display that matches its place in the desk layout relative to this PC (which
-# stays on the primary display): left of me -> the display to the left, and so on. When there is no
-# such display (or the PC is not in my row) nothing is moved: it opens as a normal window.
-function Get-ScreenFor($m) {
-    $scr = @([Windows.Forms.Screen]::AllScreens | Sort-Object { $_.Bounds.X }, { $_.Bounds.Y })
-    if ($scr.Count -lt 2) { return $null }
+# stays on the primary display): left of me -> the display to the left, and so on, the displays
+# counted left to right as Windows arranges them (DeskWin.PlaceOnDisplay). The result is that
+# offset; $null when the PC is not in my row: it opens as a normal window.
+function Get-DisplayOffset($m) {
     $rows = Get-LayoutRows $script:Kvm
     if ($null -eq $rows) { $rows = @(, @(Get-LayoutNames $script:Kvm)) }
     foreach ($row in $rows) {
         $r = @($row); $me = Find-Index $r $Me; $it = Find-Index $r $m.Name
-        if ($me -lt 0 -or $it -lt 0) { continue }
-        $prim = Find-Index ($scr | ForEach-Object { $_.Primary }) $true
-        $i = $prim + ($it - $me)
-        if ($i -ge 0 -and $i -lt $scr.Count) { return $scr[$i] }
+        if ($me -ge 0 -and $it -ge 0) { return $it - $me }
     }
     $null
 }
@@ -775,26 +799,36 @@ function Get-RustDeskWindows([switch]$Sessions) {
 function Test-HideSessions { "$(Get-RegValue $UiKey 'HideSessionsFromTaskbar')" -eq '1' }
 $script:Placers = New-Object Collections.ArrayList
 $script:Claimed = @{}
-function Watch-NewWindow($before, $screen) {   # RustDesk opens its window a moment later: poll up to 20 s
+function Watch-NewWindow($before, $offset) {   # RustDesk opens its window a moment later: poll up to 20 s
+    # RustDesk hides a closed session's window and reuses it for the next one: forget every claim on
+    # a window not showing now, or the reused one was skipped as already placed and stayed where
+    # RustDesk restored it (on the main display).
+    foreach ($h in @($script:Claimed.Keys)) { if (@($before) -notcontains $h) { $script:Claimed.Remove($h) } }
     $t = New-Object Windows.Forms.Timer; $t.Interval = 500
-    $st = @{ Before = @($before); Screen = $screen; Tries = 0; Timer = $t }
+    $st = @{ Before = @($before); Offset = $offset; Tries = 0; Timer = $t; Found = $null; Until = 0 }
     $t.Tag = $st
     $t.Add_Tick({
         param($sender)
         $x = $sender.Tag; $x.Tries++
-        # Open all starts several watchers at once: each claims only a window no other watcher took.
-        $new = @(Get-RustDeskWindows -Sessions | Where-Object { $x.Before -notcontains $_ -and -not $script:Claimed.ContainsKey($_) })
-        if ($new.Count -gt 1 -and $script:Placers.Count -gt 1) { $new = @($new[0]) }
-        if ($new.Count -or $x.Tries -ge 40) {
-            $sender.Stop()
+        if ($x.Found) {
+            # RustDesk can still move it (it restores a window's last place as the session starts):
+            # for 10 s, put it back on its display whenever it is elsewhere
+            foreach ($h in $x.Found) { try { [void][DeskWin]::PlaceOnDisplay($h, $x.Offset) } catch {} }
+            if ($x.Tries -lt $x.Until) { return }
+        } else {
+            # Open all starts several watchers at once: each claims only a window no other watcher took.
+            $new = @(Get-RustDeskWindows -Sessions | Where-Object { $x.Before -notcontains $_ -and -not $script:Claimed.ContainsKey($_) })
+            if ($new.Count -gt 1 -and $script:Placers.Count -gt 1) { $new = @($new[0]) }
+            if (-not $new.Count -and $x.Tries -lt 40) { return }
             foreach ($h in $new) { $script:Claimed[$h] = $true }
+            $placed = @()
             foreach ($h in $new) {
-                if ($x.Screen) { $b = $x.Screen.Bounds; [DeskWin]::Place($h, $b.X, $b.Y, $b.Width, $b.Height) }
+                if ($null -ne $x.Offset -and [DeskWin]::PlaceOnDisplay($h, $x.Offset) -ge 0) { $placed += $h }
                 if (Test-HideSessions) { [DeskWin]::HideFromTaskbar($h) }
             }
-            $script:Placers.Remove($sender)
-            $sender.Dispose()
+            if ($placed.Count) { $x.Found = $placed; $x.Until = $x.Tries + 20; return }
         }
+        $sender.Stop(); [void]$script:Placers.Remove($sender); $sender.Dispose()
     })
     [void]$script:Placers.Add($t); $t.Start()
 }

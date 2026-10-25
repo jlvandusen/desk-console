@@ -4,6 +4,19 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.7] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves (unattended).
+
+### Fixed
+
+- **A PC opened on the main display instead of its own after another session was closed.**
+  RustDesk reuses a closed session's window for the next one, and Desk Console skipped that window
+  as already placed. Windows not showing are now forgotten, so a reused one is placed again.
+- **Placement on a scaled display.** The displays are now measured in real pixels (a 150% display
+  was seen at 2/3 of its size), counted left to right as Windows arranges them, and for 10 s after
+  it opens a window that RustDesk moves elsewhere is put back on its display.
+
 ## [1.8.6] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves (unattended).
