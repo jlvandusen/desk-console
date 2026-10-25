@@ -4,6 +4,22 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.2] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves.
+
+### Fixed
+
+- **A second PC opened as a tab, not on its own display.** RustDesk adds every new connection as
+  a tab of its open remote window, so only the first PC reached its display. *View + control* now
+  turns RustDesk's *Open connection in new tab* off, so each PC gets a window that can be placed.
+  With sessions already open it waits until they are closed.
+
+### Added
+
+- **Separate windows or tabs.** Tray icon menu > *Open each PC in its own window (on its
+  display)*: on by default; off keeps RustDesk's tabs in one window.
+
 ## [1.8.1] - 2026-10-24
 
 Copy the new scripts to the shared folder: installed copies update themselves, and no setup run

@@ -67,6 +67,17 @@ announcing changes ([notifications](Fleet-Status-and-Actions#notifications)). Cl
 the window; right-click for *Open Desk Console*, *Refresh* and *Exit*. The installer's *Start Desk
 Console in the notification area when I sign in* starts it there with `-Tray`.
 
+The right-click menu also holds two RustDesk choices, both kept per user:
+
+- **Open each PC in its own window (on its display)** -- on by default. *View + control* opens
+  each PC in a window of its own, on the display that matches its place in the desk layout (with
+  this PC on the primary display). Off: RustDesk's own way, every PC a tab of one window. The
+  choice is RustDesk's *Open connection in new tab* setting, which Desk Console sets on the next
+  *View + control*; while sessions are open it waits until they are closed (a RustDesk window
+  without sessions is closed and reopened).
+- **Hide RustDesk sessions from the taskbar** -- off by default. Open sessions are then listed in
+  this menu: click one to bring it back.
+
 ## Self-update
 
 `version.txt` beside the script is the app's only version number. On launch an installed copy

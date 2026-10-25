@@ -699,9 +699,43 @@ function Connect-Machine($m) {
     $a = '--connect ' + (ConvertTo-NativeArg $m.IP)
     $pw = [DeskCred]::Read($CredTarget)
     if ($pw) { $a += ' --password ' + (ConvertTo-NativeArg $pw) }
+    try { Sync-RustDeskTabs } catch {}
     $before = Get-RustDeskWindows -Sessions
     Start-Process $RustDeskExe -ArgumentList $a
     Watch-NewWindow $before (Get-ScreenFor $m)
+}
+
+# RustDesk opens a connection as a tab of its open remote window -- which cannot go to another
+# display -- unless its local option enable-open-new-connections-in-tabs is 'N'
+# (multi_window_manager.dart, RustDesk 1.5.0). It reads RustDesk_local.toml once at start and writes
+# all of it back on every change (hbb_common LocalConfig), so the file is changed only while this
+# user has no RustDesk window running: one without sessions is closed first (never the service,
+# server, tray or connection manager); with sessions open it waits for the next connect after them.
+$RustDeskLocal = Join-Path $env:APPDATA 'RustDesk\config\RustDesk_local.toml'
+$TabsKey = 'enable-open-new-connections-in-tabs'
+function Test-SessionWindows { "$(Get-RegValue $UiKey 'SessionWindows')" -ne '0' }   # default: a window per PC
+function Sync-RustDeskTabs {
+    $want = $(if (Test-SessionWindows) { 'N' } else { 'Y' })
+    $line = "$TabsKey = '$want'"
+    $lines = New-Object Collections.Generic.List[string]
+    if (Test-Path $RustDeskLocal) { $old = @(Get-Content $RustDeskLocal -Encoding UTF8); if ($old.Count) { $lines.AddRange([string[]]$old) } }
+    $at = -1; for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match "^\s*$([regex]::Escape($TabsKey))\s*=") { $at = $i; break } }
+    if ($at -ge 0 -and $lines[$at].Trim() -eq $line) { return }
+    if ($at -lt 0 -and $want -eq 'Y') { return }   # not set = tabs, RustDesk's default
+    if (@(Get-RustDeskWindows -Sessions).Count) { return }
+    $sid = [Diagnostics.Process]::GetCurrentProcess().SessionId
+    $ui = @(Get-CimInstance Win32_Process -Filter "Name='rustdesk.exe'" -ErrorAction SilentlyContinue | Where-Object {
+        $_.SessionId -eq $sid -and "$($_.CommandLine)" -and "$($_.CommandLine)" -notmatch '--(service|server|tray|cm)' })
+    foreach ($p in $ui) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
+    if ($ui.Count) { Wait-Process -Id @($ui | ForEach-Object { $_.ProcessId }) -Timeout 5 -ErrorAction SilentlyContinue }
+    if ($at -ge 0) { $lines[$at] = $line }
+    else {
+        $sec = -1; for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i].Trim() -eq '[options]') { $sec = $i; break } }
+        if ($sec -ge 0) { $lines.Insert($sec + 1, $line) }
+        else { if ($lines.Count -and $lines[$lines.Count - 1] -ne '') { $lines.Add('') }; $lines.Add('[options]'); $lines.Add($line) }
+    }
+    New-Item -ItemType Directory -Force (Split-Path $RustDeskLocal) | Out-Null
+    [IO.File]::WriteAllLines($RustDeskLocal, $lines)   # UTF-8 without BOM
 }
 
 # Each PC opens on the display that matches its place in the desk layout relative to this PC (which
@@ -1603,6 +1637,14 @@ $hideItem.Add_Click({
     Set-ItemProperty $UiKey -Name HideSessionsFromTaskbar -Value $(if ($hideItem.Checked) { '1' } else { '0' })
 })
 [void]$trayMenu.Items.Add($hideItem)
+# Off: RustDesk's own way, every PC a tab of one window (which then stays on one display).
+$winItem = New-Object Windows.Forms.ToolStripMenuItem 'Open each PC in its own window (on its display)'; $winItem.CheckOnClick = $true
+$winItem.Checked = Test-SessionWindows
+$winItem.Add_Click({
+    if (-not (Test-Path $UiKey)) { New-Item $UiKey | Out-Null }
+    Set-ItemProperty $UiKey -Name SessionWindows -Value $(if ($winItem.Checked) { '1' } else { '0' })
+})
+[void]$trayMenu.Items.Add($winItem)
 [void]$trayMenu.Items.Add('-')
 [void]$trayMenu.Items.Add('Exit', $null, { Exit-App })
 # Sessions hidden from the taskbar are listed here to bring one back to the front.

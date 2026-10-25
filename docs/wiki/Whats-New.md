@@ -1,6 +1,11 @@
 # What's New
 
-## Desk Console 1.8.1 (since 1.7.1)
+## Desk Console 1.8.2 (since 1.7.1)
+
+- **1.8.2: every PC on its own display, or tabs.** A second PC used to open as a tab of the first
+  one's window. Each PC now gets its own window on its display; tray icon menu > untick *Open each
+  PC in its own window (on its display)* for RustDesk's tabs instead. With sessions open when you
+  update, close them once first.
 
 - **1.8.1: Deskflow stays in the notification area.** It starts hidden at sign-in, closing its
   window keeps it running, and its tray icon opens it. Nothing to do: each PC's 2-minute task
