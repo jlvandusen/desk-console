@@ -23,21 +23,21 @@ Plus, per PC:
 - **Phones and tablets:** QR codes in the installer and the app to install RustDesk on a phone
   (even a foldable) and control the PCs from it.
 
-## What's new in 1.7
+## What's new in 1.8
 
-- **Every PC reports its own state** to the shared folder, and every card shows it -- greyed when
-  it goes stale, so a quiet PC is never shown as fine. Keyboard/mouse lines come from the server's
-  real connections.
-- **Restart, Sleep, Lock or Sign out** any PC from its card; requests expire after 10 minutes.
-- **Tray icon and notifications** when a PC goes offline, a client loses the keyboard and mouse, or
-  the shared folder stops answering.
-- **Safer by default:** RustDesk and the firewall answer your home network only (before, every PC
-  accepted its RustDesk password from anywhere on the internet); the automatic sign-in lock also
-  covers sign-outs and Fast Startup.
-- **Ctrl+Alt+Shift+1..9** jumps straight to a PC; screens can be laid out in a grid; Wake-on-LAN is
-  turned on by setup; addresses heal themselves.
+- **Each PC opens on its own display.** *View + control* and *Connect all* put every PC's RustDesk
+  window on the display that matches its place in your desk layout -- the displays counted left to
+  right as Windows arranges them, scaled displays included. Prefer one window with a tab per PC?
+  Untick *Each PC in its own window* in the toolbar.
+- **Unattended updates.** Every PC updates Desk Console by itself within about 2 minutes of a new
+  version reaching the shared folder -- even where nobody opens Desk Console.
+- **Out of the way on the taskbar:** Deskflow lives in the notification area, RustDesk's "someone is
+  connected" window is hidden on the PCs you control (per PC, from a card's *Actions*), and Desk
+  Console has its own taskbar icon instead of PowerShell's.
+- **Fixes:** *Connect all* opens every PC (it opened only the first); a PC no longer lands on the
+  main display after another session was closed.
 
-After updating, run the 1.7.1 installer once on each PC (*Update and keep this PC's settings*).
+Copy the new scripts to the shared folder once; from 1.8.4 on the PCs take it from there.
 Everything, with what to expect: **[What's New](../../wiki/Whats-New)** -- the same list Desk
 Console shows once after it updates -- and the [changelog](CHANGELOG.md).
 
