@@ -4,6 +4,18 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.5] - 2026-10-25
+
+Copy the new scripts to the shared folder: installed copies update themselves (unattended, from
+1.8.4 on).
+
+### Changed
+
+- **RustDesk's connection window is hidden on every PC by default.** A card's *Actions* > *Hide
+  RustDesk's connection window there* is now ticked unless you untick it; kvm.json
+  `showRustDeskWindow` lists the PCs that keep the window. 1.8.4's opt-in `hideRustDeskWindow` list
+  is no longer used (Desk Console removes it at the next change).
+
 ## [1.8.4] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves.

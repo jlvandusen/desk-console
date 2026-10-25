@@ -39,7 +39,7 @@ account, or the PC shows *No report yet* after every restart.
 | `updates` | `complete`, `incomplete` or `off` -- the [Windows Update](Windows-Update) restart policy |
 | `rustdeskReach` | `lan`, `anywhere` or `unknown` ([Remote Control](Remote-Control#who-can-connect-home-network-only-or-anywhere)) |
 | `deskflowHidden` | Deskflow starts in the notification area (`gui/autoHide` in the settings file it reads); `null` when Deskflow is not used or has no settings file |
-| `rustdeskWindowWatcher` | `running`, `stopped` or `off`: the watcher that hides RustDesk's connection window ([kvm.json `hideRustDeskWindow`](Configuration#kvmjson)) |
+| `rustdeskWindowWatcher` | `running`, `stopped` or `off`: the watcher that hides RustDesk's connection window ([kvm.json `showRustDeskWindow`](Configuration#kvmjson)) |
 | `lastBoot`, `ip` | When Windows started; the address the PC uses on the LAN |
 | `lastCommand` | `id`, `action`, `result` (`ok`, `refused`, `expired`, `failed: ...`) and `at` of the last action it ran |
 
@@ -85,7 +85,7 @@ A card's **Actions** button (any other PC):
 | **Sleep...** | It goes to sleep; wake it with *Wake* (needs Wake-on-LAN) |
 | **Lock...** | Its screen locks |
 | **Sign out...** | It signs out; unsaved work is lost. With automatic sign-in on, Windows signs straight back in |
-| **Hide RustDesk's connection window there** | A setting, not a command: ticked, that PC hides RustDesk's "someone is connected" window from its next 2-minute run ([kvm.json `hideRustDeskWindow`](Configuration#kvmjson)) |
+| **Hide RustDesk's connection window there** | A setting, not a command, ticked by default: that PC hides RustDesk's "someone is connected" window. Untick it to keep the window there, from its next 2-minute run ([kvm.json `showRustDeskWindow`](Configuration#kvmjson)) |
 
 Desk Console asks first, then writes `commands\<PC>\<id>.json` in the shared folder:
 

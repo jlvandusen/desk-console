@@ -85,7 +85,7 @@ re-launches itself under `sysnative` if it ever finds itself 32-bit.
 The same task runs on every PC, whatever the keyboard/mouse program (before 1.7.0 only on Deskflow
 PCs). First it updates Desk Console on this PC when the shared folder has a newer version (then
 that run ends; [Self-update](Desk-Console-App#self-update)). Besides the Deskflow steps above, it
-starts or stops the RustDesk window watcher (kvm.json `hideRustDeskWindow`) and runs `Agent.ps1`,
+starts or stops the RustDesk window watcher (kvm.json `showRustDeskWindow`) and runs `Agent.ps1`,
 which in under 30 seconds and without ever prompting:
 
 1. rewrites this PC's `machines.csv` row when its address or network card changed;

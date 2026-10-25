@@ -1664,12 +1664,13 @@ function Register-TrustSyncTask {
     Register-ScheduledTask -TaskName $TrustTask -Action $act -Trigger $t1, $t2 -Settings $set -Force | Out-Null
 }
 
-# kvm.json "hideRustDeskWindow": the PCs that hide RustDesk's connection manager (the "someone is
-# connected" window, rustdesk.exe --cm) while they are controlled. RustDesk 1.5.0 hides it only in
-# Pro or a custom client (ipc.rs get_config "hide_cm"), so a watcher of ours does: a per-user task
-# at sign-in, no time limit, that the 2-minute task registers and starts on those PCs only.
+# Every PC hides RustDesk's connection manager (the "someone is connected" window, rustdesk.exe
+# --cm) while it is controlled, except those in kvm.json "showRustDeskWindow" (1.8.5; 1.8.4's
+# opt-in "hideRustDeskWindow" is ignored). RustDesk 1.5.0 hides it only in Pro or a custom client
+# (ipc.rs get_config "hide_cm"), so a watcher of ours does: a per-user task at sign-in, no time
+# limit, that the 2-minute task registers and starts.
 $CmTask = 'DeskConsole RustDesk window watcher'   # the name the uninstaller knows
-function Test-HideCm { @((Get-Kvm).hideRustDeskWindow | Where-Object { $_ } | ForEach-Object { "$_" }) -contains $Me }
+function Test-HideCm { @((Get-Kvm).showRustDeskWindow | Where-Object { $_ } | ForEach-Object { "$_" }) -notcontains $Me }
 function Sync-CmWatcher {   # from the 2-minute task, as the signed-in user
     $t = Get-ScheduledTask -TaskName $CmTask -ErrorAction SilentlyContinue
     if (-not (Test-HideCm)) {

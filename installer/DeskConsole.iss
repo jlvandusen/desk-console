@@ -134,7 +134,7 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DeskConsole Deskflow 
   Flags: runhidden; RunOnceId: "DeleteTrustSyncTask"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DeskConsole dev box resume"" /F"; \
   Flags: runhidden; RunOnceId: "DeleteDevBoxTask"
-; the RustDesk window watcher (kvm.json hideRustDeskWindow) runs until sign-out: end it, then delete it
+; the RustDesk window watcher (on unless kvm.json showRustDeskWindow lists the PC) runs until sign-out: end it, then delete it
 Filename: "{sys}\schtasks.exe"; Parameters: "/End /TN ""DeskConsole RustDesk window watcher"""; \
   Flags: runhidden; RunOnceId: "EndCmWatchTask"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""DeskConsole RustDesk window watcher"" /F"; \
