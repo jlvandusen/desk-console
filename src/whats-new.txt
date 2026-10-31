@@ -1,4 +1,8 @@
-Desk Console 1.8.8 -- what's new since 1.7.1
+Desk Console 1.8.9 -- what's new since 1.7.1
+
+1.8.9: RUSTDESK WINS OVER DESKFLOW
+- While a RustDesk session is open on the keyboard/mouse server, keyboard and mouse sharing pauses there: the cursor no longer jumps to another PC (taking the focus with it) when it touches the edge of a RustDesk window, and Ctrl+Alt+arrow keys reach games again. It comes back 5 seconds after the last session closes.
+- Every PC with its own monitor and you want Deskflow during sessions too? Tray icon menu > untick "Pause keyboard/mouse sharing while a RustDesk session is open".
 
 1.8.6 + 1.8.7 FIXES
 - Each PC opens on its own display every time: after a session was closed, the next PC could open on the main display (RustDesk reuses the closed window). Displays are matched left to right as Windows arranges them, at their real size also when scaled (150% and so on).

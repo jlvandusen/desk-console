@@ -1219,6 +1219,47 @@ $connectTimer.Add_Tick({
     try { Connect-Machine $m } catch { Set-Status "$($m.Name): $(Get-ErrorText $_.Exception)" $Red }
 })
 
+# ---------------------------------------------------------------- RustDesk wins over Deskflow (1.8.9)
+# On the Deskflow server, while a RustDesk session is open here, keyboard/mouse sharing pauses: no
+# links, no hotkeys (Setup-Synergy.ps1 Test-KvmPaused, -Phase KvmSync), so RustDesk is the only input
+# path. On by default; the tray menu turns it off for a desk where every PC has its own monitor.
+function Test-KvmPauseOn { "$(Get-RegValue $UiKey 'PauseKvmInSessions')" -ne '0' }
+function Test-KvmServerHere { [bool]($script:Kvm -and "$($script:Kvm.provider)" -eq 'Deskflow' -and "$($script:Kvm.server)" -eq $Me) }
+$script:KvmPaused = $false; $script:KvmApplied = $false; $script:KvmIdleSince = $null; $script:KvmSyncProc = $null
+function Start-KvmSync {   # rebuilds the layout from the flag as it is when the phase runs
+    $setup = @((Join-Path $InstallDir 'Setup-Synergy.ps1'), (Join-Path $PSScriptRoot 'Setup-Synergy.ps1')) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $setup) { return }
+    $script:KvmApplied = $script:KvmPaused
+    $script:KvmSyncProc = Start-Process (Join-Path $env:WINDIR 'System32\conhost.exe') -PassThru -ArgumentList @('--headless', 'powershell.exe',
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', "`"$setup`"", '-Phase', 'KvmSync')
+}
+function Set-KvmPaused([bool]$on) {
+    $script:KvmPaused = $on
+    if (-not (Test-Path $UiKey)) { New-Item $UiKey | Out-Null }
+    if ($on) { Set-ItemProperty $UiKey -Name KvmPausedBy -Value "$PID" } else { Remove-ItemProperty $UiKey -Name KvmPausedBy -ErrorAction SilentlyContinue }
+    Set-Status $(if ($on) { 'Keyboard/mouse sharing paused: a RustDesk session is open, RustDesk has the mouse and keyboard.' }
+                 else { 'Keyboard/mouse sharing is back on: no RustDesk session is open.' }) $Ink
+}
+# a pause left by a Desk Console that is gone (the 2-minute task undoes it too)
+if ("$(Get-RegValue $UiKey 'KvmPausedBy')" -and "$(Get-RegValue $UiKey 'KvmPausedBy')" -ne "$PID") {
+    Remove-ItemProperty $UiKey -Name KvmPausedBy -ErrorAction SilentlyContinue; $script:KvmApplied = $true   # makes the first tick resume
+}
+$kvmPauseTimer = New-Object Windows.Forms.Timer; $kvmPauseTimer.Interval = 1000
+$kvmPauseTimer.Add_Tick({
+    try {
+        if ((Test-KvmPauseOn) -and (Test-KvmServerHere) -and @(Get-RustDeskWindows -Sessions).Count) {
+            $script:KvmIdleSince = $null
+            if (-not $script:KvmPaused) { Set-KvmPaused $true }
+        } elseif ($script:KvmPaused) {
+            # 5 s without a session first: RustDesk hides and shows its windows as sessions change
+            if (-not $script:KvmIdleSince) { $script:KvmIdleSince = Get-Date }
+            elseif (((Get-Date) - $script:KvmIdleSince).TotalSeconds -ge 5) { $script:KvmIdleSince = $null; Set-KvmPaused $false }
+        }
+        if ($script:KvmApplied -ne $script:KvmPaused -and -not ($script:KvmSyncProc -and -not $script:KvmSyncProc.HasExited)) { Start-KvmSync }
+    } catch {}
+})
+$kvmPauseTimer.Start()
+
 # ---------------------------------------------------------------- wake, with a follow-up (F10)
 $wakeTimer = New-Object Windows.Forms.Timer; $wakeTimer.Interval = 5000
 function Invoke-Wake($name) {
@@ -1717,7 +1758,8 @@ function Restore-Bounds {   # only where a screen still shows the title bar (a m
 }
 function Stop-App {   # once: timers, tray icon, then the message loop (the window is closed or closing)
     if ($script:Stopped) { return }; $script:Stopped = $true; $script:Exiting = $true
-    $timer.Stop(); $poll.Stop(); $wakeTimer.Stop()
+    $timer.Stop(); $poll.Stop(); $wakeTimer.Stop(); $kvmPauseTimer.Stop()
+    if ($script:KvmPaused) { try { Set-KvmPaused $false; Start-KvmSync } catch {} }   # never leave the desk without its mouse
     if ($script:AdminJob) { Remove-Secrets $script:AdminJob.Secrets }
     if ($script:TrayIcon) { $script:TrayIcon.Visible = $false }
     $app.ExitThread()
@@ -1742,6 +1784,13 @@ $winItem = New-Object Windows.Forms.ToolStripMenuItem 'Open each PC in its own w
 $winItem.Checked = Test-SessionWindows
 $winItem.Add_Click({ Set-SessionWindows $winItem.Checked })
 [void]$trayMenu.Items.Add($winItem)
+$kvmItem = New-Object Windows.Forms.ToolStripMenuItem 'Pause keyboard/mouse sharing while a RustDesk session is open'; $kvmItem.CheckOnClick = $true
+$kvmItem.Checked = Test-KvmPauseOn
+$kvmItem.Add_Click({
+    if (-not (Test-Path $UiKey)) { New-Item $UiKey | Out-Null }
+    Set-ItemProperty $UiKey -Name PauseKvmInSessions -Value $(if ($kvmItem.Checked) { '1' } else { '0' })
+})
+[void]$trayMenu.Items.Add($kvmItem)
 [void]$trayMenu.Items.Add('-')
 [void]$trayMenu.Items.Add('Exit', $null, { Exit-App })
 # Sessions hidden from the taskbar are listed here to bring one back to the front.

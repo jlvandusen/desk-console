@@ -81,6 +81,8 @@ The right-click menu also holds two RustDesk choices, both kept per user:
   without sessions is closed and reopened).
 - **Hide RustDesk sessions from the taskbar** -- off by default. Open sessions are then listed in
   this menu: click one to bring it back.
+- **Pause keyboard/mouse sharing while a RustDesk session is open** -- on by default, on the
+  keyboard/mouse server ([Keyboard and Mouse](Keyboard-and-Mouse#rustdesk-sessions-pause-keyboard-and-mouse-sharing)).
 
 ## Self-update
 

@@ -1,6 +1,10 @@
 # What's New
 
-## Desk Console 1.8.8 (since 1.7.1)
+## Desk Console 1.8.9 (since 1.7.1)
+
+- **1.8.9: RustDesk sessions pause keyboard and mouse sharing** on the server, so the cursor and
+  the focus stay in the RustDesk window and games get their key combinations back
+  ([Keyboard and Mouse](Keyboard-and-Mouse#rustdesk-sessions-pause-keyboard-and-mouse-sharing)).
 
 - **1.8.8:** the installer bundles the Microsoft Visual C++ runtime 14.51.36247.0 (was 14.44); PCs
   that already have 14.44 or newer are not touched.

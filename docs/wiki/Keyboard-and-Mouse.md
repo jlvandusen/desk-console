@@ -52,6 +52,24 @@ delay or a double tap before the mouse crosses, the heartbeat
 Deskflow's settings and reloads it. Change them there rather than in Deskflow's window, which the
 next sync overwrites.
 
+## RustDesk sessions pause keyboard and mouse sharing
+
+When you view the other PCs in RustDesk windows on the server's own displays, RustDesk already
+carries your keyboard and mouse to them, and Deskflow only gets in the way: touching the desk's
+outer edge in a RustDesk window threw the cursor to that PC's own screen and back (hundreds of
+times a day in Deskflow's log), taking the focus with it, and its hotkeys took Ctrl+Alt+arrow keys
+from games.
+
+So while a RustDesk session is open on the keyboard/mouse server, Desk Console there pauses
+Deskflow: the server's layout loses its links and hotkeys, the cursor stays on the server, and
+RustDesk is the only way in. Five seconds after the last session closes, the layout comes back.
+Each change restarts Deskflow's engine for about a second; the clients stay connected.
+
+On by default. On a desk where every PC has its own monitor and you also use Deskflow while a
+RustDesk session is open, untick Desk Console's tray icon menu > *Pause keyboard/mouse sharing
+while a RustDesk session is open*. The pause belongs to the running Desk Console: quitting it
+resumes Deskflow, and if Desk Console stops unexpectedly the server's 2-minute task resumes it.
+
 ## Deskflow's window
 
 Deskflow runs from the notification area: setup starts it hidden at sign-in, so it has no taskbar

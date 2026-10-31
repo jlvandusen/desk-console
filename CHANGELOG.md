@@ -4,6 +4,29 @@ What changed in each release. The release workflow publishes a version's section
 notes, so each entry is written for the people running Desk Console. Format:
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow `src/version.txt`.
 
+## [1.8.9] - 2026-10-31
+
+Copy the new scripts to the shared folder: installed copies update themselves (unattended).
+
+### Added
+
+- **RustDesk sessions pause keyboard and mouse sharing.** While a RustDesk session is open on the
+  keyboard/mouse server, Desk Console removes Deskflow's links and hotkeys there, so RustDesk is the
+  only input path; they come back 5 s after the last session closes. Deskflow's edge links had been
+  throwing the cursor -- and the focus -- to the other PC whenever it touched the desk's outer edge
+  in a RustDesk window (711 switches in one server's log, nearly all bounces of under a second),
+  and its hotkeys took Ctrl+Alt+arrow keys from games. On by default; tray icon menu > *Pause
+  keyboard/mouse sharing while a RustDesk session is open* turns it off for a desk where every PC
+  has its own monitor. Quitting Desk Console resumes Deskflow; if it stops unexpectedly, the
+  2-minute task does.
+
+### Fixed
+
+- **A layout change could be written but never loaded.** Deskflow's engine reloads only when
+  `Deskflow.conf` changes, and restarting its window does not always rewrite that file, so a new
+  layout from the server's 2-minute task (a PC added or moved) could wait for the next restart.
+  Every layout change now stamps `Deskflow.conf`, which restarts the engine with it.
+
 ## [1.8.8] - 2026-10-25
 
 Copy the new scripts to the shared folder: installed copies update themselves (unattended).
